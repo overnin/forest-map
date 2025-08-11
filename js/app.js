@@ -95,6 +95,26 @@ const ForestMapApp = (function() {
         document.addEventListener('webkitfullscreenchange', handleFullscreenChange); // Safari
         document.addEventListener('mozfullscreenchange', handleFullscreenChange); // Firefox
         document.addEventListener('msfullscreenchange', handleFullscreenChange); // IE/Edge
+        
+        // Mobile-specific events
+        if (isMobileDevice()) {
+            // Listen for orientation change which often happens during fullscreen
+            window.addEventListener('orientationchange', () => {
+                setTimeout(updateFullscreenButtonState, 300);
+            });
+            
+            // Listen for resize events which can indicate fullscreen changes on mobile
+            window.addEventListener('resize', () => {
+                setTimeout(updateFullscreenButtonState, 100);
+            });
+            
+            // Periodic check for mobile devices (fallback)
+            setInterval(() => {
+                if (document.getElementById('fullscreen-btn')) {
+                    updateFullscreenButtonState();
+                }
+            }, 2000);
+        }
     }
     
     // Initialize location tracking
@@ -211,7 +231,18 @@ const ForestMapApp = (function() {
     // Handle fullscreen button click
     function handleFullscreenClick() {
         MapManager.toggleFullscreen();
-        // Button state will be updated by fullscreen event listeners
+        
+        // For mobile devices, add a fallback check since events may not fire reliably
+        if (isMobileDevice()) {
+            setTimeout(() => {
+                updateFullscreenButtonState();
+            }, 100);
+            
+            // Additional check after a longer delay
+            setTimeout(() => {
+                updateFullscreenButtonState();
+            }, 500);
+        }
     }
     
     // Handle layer change
@@ -275,16 +306,37 @@ const ForestMapApp = (function() {
         }
     }
     
-    // Handle fullscreen change events
-    function handleFullscreenChange() {
+    // Detect mobile devices
+    function isMobileDevice() {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+               ('ontouchstart' in window) ||
+               (window.innerWidth <= 768);
+    }
+    
+    // Update fullscreen button state
+    function updateFullscreenButtonState() {
         const fullscreenBtn = document.getElementById('fullscreen-btn');
         if (!fullscreenBtn) return;
         
-        // Check if we're in fullscreen mode
+        // Check if we're in fullscreen mode (with broader detection for mobile)
         const isFullscreen = !!(document.fullscreenElement || 
                                document.webkitFullscreenElement || 
                                document.mozFullScreenElement || 
-                               document.msFullscreenElement);
+                               document.msFullscreenElement ||
+                               // Mobile Safari specific check
+                               (window.navigator.standalone) ||
+                               // Screen dimension check for mobile fullscreen
+                               (isMobileDevice() && window.innerHeight === screen.height));
+        
+        debugLog('Fullscreen state check:', {
+            fullscreenElement: !!document.fullscreenElement,
+            webkitFullscreenElement: !!document.webkitFullscreenElement,
+            standalone: !!window.navigator.standalone,
+            innerHeight: window.innerHeight,
+            screenHeight: screen.height,
+            isMobile: isMobileDevice(),
+            isFullscreen: isFullscreen
+        });
         
         if (isFullscreen) {
             fullscreenBtn.classList.add('active');
@@ -293,6 +345,11 @@ const ForestMapApp = (function() {
             fullscreenBtn.classList.remove('active');
             debugLog('Exited fullscreen mode');
         }
+    }
+    
+    // Handle fullscreen change events
+    function handleFullscreenChange() {
+        updateFullscreenButtonState();
     }
     
     // Save user preference
