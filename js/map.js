@@ -18,7 +18,16 @@ const MapManager = (function() {
     let currentBaseStyle = 'satellite';
     let parcelsVisible = true;
     
-    console.log('Map module initialized - parcelsVisible:', parcelsVisible);
+    // Production flag to control debug logging
+    const DEBUG_MODE = false;
+    
+    function debugLog(...args) {
+        if (DEBUG_MODE) {
+            console.log(...args);
+        }
+    }
+    
+    debugLog('Map module initialized - parcelsVisible:', parcelsVisible);
     
     // Initialize map
     function init() {
@@ -53,7 +62,7 @@ const MapManager = (function() {
         
         // Map loaded event
         map.on('load', () => {
-            console.log('Map loaded successfully');
+            debugLog('Map loaded successfully');
             setupMapEvents();
         });
         
@@ -72,15 +81,15 @@ const MapManager = (function() {
         map.on('error', (e) => {
             // Ignore terrain-related errors as they don't affect functionality
             if (e.error && e.error.message && e.error.message.includes('terrain')) {
-                console.log('Terrain configuration notice (can be ignored):', e.error.message);
+                debugLog('Terrain configuration notice (can be ignored):', e.error.message);
                 return;
             }
             // Ignore raster-emissive-strength warnings
             if (e.error && e.error.message && e.error.message.includes('raster-emissive-strength')) {
-                console.log('Style property notice (can be ignored):', e.error.message);
+                debugLog('Style property notice (can be ignored):', e.error.message);
                 return;
             }
-            console.error('Map error:', e.error);
+            debugLog('Map error:', e.error);
         });
     }
     
@@ -165,7 +174,7 @@ const MapManager = (function() {
             
             accuracyCircle = true;
         } catch (e) {
-            console.warn('Could not add accuracy circle:', e);
+            debugLog('Could not add accuracy circle:', e);
         }
     }
     
@@ -194,7 +203,7 @@ const MapManager = (function() {
             try {
                 map.setStyle(mapStyles.custom);
             } catch (e) {
-                console.warn('Error setting custom style, using fallback:', e);
+                debugLog('Error setting custom style, using fallback:', e);
                 map.setStyle(mapStyles.satellite);
             }
             
@@ -212,7 +221,7 @@ const MapManager = (function() {
                 try {
                     map.setStyle(mapStyles.custom);
                 } catch (e) {
-                    console.warn('Error setting custom style, using base style:', e);
+                    debugLog('Error setting custom style, using base style:', e);
                     map.setStyle(mapStyles[styleName]);
                 }
             } else {
@@ -230,87 +239,112 @@ const MapManager = (function() {
         
         // Clear any style errors after switching
         map.once('idle', () => {
-            console.log('Style switch completed');
+            debugLog('Style switch completed');
         });
     }
     
-    // Parcel layer overlay approach (fallback for broken custom style)
+    // Parcel layer overlay system
     let parcelSourceAdded = false;
+    let cachedStyleData = null;
+    let isLoadingParcels = false;
     
-    // Toggle parcel visibility using overlay approach
+    // Toggle parcel visibility using optimized overlay approach
     function toggleParcels() {
-        console.log('=== TOGGLE PARCELS START ===');
-        console.log('Previous parcelsVisible:', parcelsVisible);
+        debugLog('=== TOGGLE PARCELS START ===');
+        debugLog('Previous parcelsVisible:', parcelsVisible);
         
         parcelsVisible = !parcelsVisible;
         
-        console.log('New parcelsVisible:', parcelsVisible);
-        console.log('Using overlay approach instead of style switching');
+        debugLog('New parcelsVisible:', parcelsVisible);
+        debugLog('Using optimized overlay approach');
         
-        if (parcelsVisible) {
-            console.log('Parcels ON - Adding overlay layers');
+        if (parcelsVisible && !isLoadingParcels) {
+            debugLog('Parcels ON - Adding overlay layers');
             addParcelOverlay();
-        } else {
-            console.log('Parcels OFF - Removing overlay layers');
+        } else if (!parcelsVisible) {
+            debugLog('Parcels OFF - Removing overlay layers');
             removeParcelOverlay();
         }
         
         // Re-add user marker 
         const position = LocationTracker.getCurrentPosition();
         if (position) {
-            console.log('Re-adding user location');
+            debugLog('Re-adding user location');
             updateUserLocation(position.lat, position.lng, position.accuracy);
         }
         
-        console.log('=== TOGGLE PARCELS COMPLETE ===');
+        debugLog('=== TOGGLE PARCELS COMPLETE ===');
         return parcelsVisible;
     }
     
-    // Add parcel overlay layers to current map
+    // Add parcel overlay layers to current map (optimized with caching)
     function addParcelOverlay() {
-        console.log('Attempting to add parcel overlay...');
+        debugLog('Attempting to add parcel overlay...');
+        
+        if (isLoadingParcels) {
+            debugLog('Parcel loading already in progress, skipping...');
+            return;
+        }
+        
+        isLoadingParcels = true;
+        
+        // Use cached data if available
+        if (cachedStyleData) {
+            debugLog('Using cached style data');
+            processStyleData(cachedStyleData);
+            isLoadingParcels = false;
+            return;
+        }
         
         // Fetch the custom style to extract the real source configuration
         fetch(`https://api.mapbox.com/styles/v1/oliviervernin/clzj0gc3500jw01qwhpnk7gxo?access_token=${MAPBOX_TOKEN}`)
             .then(response => {
-                console.log('Style fetch response:', response.status);
+                debugLog('Style fetch response:', response.status);
                 if (!response.ok) {
                     throw new Error(`Style fetch failed: ${response.status}`);
                 }
                 return response.json();
             })
             .then(styleData => {
-                console.log('Style data received, sources:', Object.keys(styleData.sources));
-                
-                // Find the source that contains parcel data
-                const parcelSourceKey = Object.keys(styleData.sources).find(key => 
-                    key.toLowerCase().includes('forest') || 
-                    key.toLowerCase().includes('parcel') ||
-                    key.toLowerCase().includes('boundary')
-                );
-                
-                if (!parcelSourceKey) {
-                    console.warn('No parcel source found in style, using composite');
-                    // Try using composite source
-                    addParcelLayersFromComposite(styleData);
-                } else {
-                    console.log('Found parcel source:', parcelSourceKey);
-                    const sourceConfig = styleData.sources[parcelSourceKey];
-                    addParcelLayersFromSource(sourceConfig, styleData);
-                }
+                // Cache the style data for future use
+                cachedStyleData = styleData;
+                debugLog('Style data received and cached, sources:', Object.keys(styleData.sources));
+                processStyleData(styleData);
             })
             .catch(error => {
-                console.error('Error fetching style data:', error);
-                console.log('Trying fallback overlay method...');
+                debugLog('Error fetching style data:', error);
+                debugLog('Trying fallback overlay method...');
                 addFallbackParcelOverlay();
+            })
+            .finally(() => {
+                isLoadingParcels = false;
             });
+    }
+    
+    // Process the style data to add parcel layers
+    function processStyleData(styleData) {
+        // Find the source that contains parcel data
+        const parcelSourceKey = Object.keys(styleData.sources).find(key => 
+            key.toLowerCase().includes('forest') || 
+            key.toLowerCase().includes('parcel') ||
+            key.toLowerCase().includes('boundary')
+        );
+        
+        if (!parcelSourceKey) {
+            debugLog('No parcel source found in style, using composite');
+            addParcelLayersFromComposite(styleData);
+        } else {
+            debugLog('Found parcel source:', parcelSourceKey);
+            const sourceConfig = styleData.sources[parcelSourceKey];
+            addParcelLayersFromSource(sourceConfig, styleData);
+        }
     }
     
     // Add parcel layers using extracted source configuration
     function addParcelLayersFromSource(sourceConfig, styleData) {
         try {
             if (!map.getSource('forest-parcels')) {
-                console.log('Adding forest parcels source with config:', sourceConfig);
+                debugLog('Adding forest parcels source with config:', sourceConfig);
                 map.addSource('forest-parcels', sourceConfig);
             }
             
@@ -322,7 +356,7 @@ const MapManager = (function() {
                 layer.id.toLowerCase().includes('limite')
             );
             
-            console.log('Found parcel layers:', parcelLayers.map(l => l.id));
+            debugLog('Found parcel layers:', parcelLayers.map(l => l.id));
             
             // Add the first parcel layer found
             if (parcelLayers.length > 0) {
@@ -330,17 +364,17 @@ const MapManager = (function() {
                 layerConfig.source = 'forest-parcels'; // Use our source
                 
                 if (!map.getLayer(layerConfig.id)) {
-                    console.log('Adding parcel layer:', layerConfig.id);
+                    debugLog('Adding parcel layer:', layerConfig.id);
                     map.addLayer(layerConfig);
                 }
-                console.log('✅ Parcel overlay added successfully');
+                debugLog('✅ Parcel overlay added successfully');
             } else {
-                console.warn('No parcel layers found in style');
+                debugLog('No parcel layers found in style');
                 addFallbackParcelOverlay();
             }
             
         } catch (error) {
-            console.error('Error adding parcel layers from source:', error);
+            debugLog('Error adding parcel layers from source:', error);
             addFallbackParcelOverlay();
         }
     }
@@ -350,7 +384,7 @@ const MapManager = (function() {
         try {
             // Use the composite source from the style
             if (!map.getSource('forest-parcels') && styleData.sources.composite) {
-                console.log('Adding composite source for parcels');
+                debugLog('Adding composite source for parcels');
                 map.addSource('forest-parcels', styleData.sources.composite);
             }
             
@@ -369,17 +403,17 @@ const MapManager = (function() {
                 layerConfig.source = 'forest-parcels';
                 
                 if (!map.getLayer(layerConfig.id)) {
-                    console.log('Adding parcel layer from composite:', layerConfig.id);
+                    debugLog('Adding parcel layer from composite:', layerConfig.id);
                     map.addLayer(layerConfig);
                 }
-                console.log('✅ Parcel overlay added from composite source');
+                debugLog('✅ Parcel overlay added from composite source');
             } else {
-                console.warn('No parcel layers found in composite source');
+                debugLog('No parcel layers found in composite source');
                 addFallbackParcelOverlay();
             }
             
         } catch (error) {
-            console.error('Error adding parcel layers from composite:', error);
+            debugLog('Error adding parcel layers from composite:', error);
             addFallbackParcelOverlay();
         }
     }
@@ -399,33 +433,33 @@ const MapManager = (function() {
             
             parcelLayers.forEach(layer => {
                 if (map.getLayer(layer.id)) {
-                    console.log('Removing parcel layer:', layer.id);
+                    debugLog('Removing parcel layer:', layer.id);
                     map.removeLayer(layer.id);
                 }
             });
             
             // Remove demo layers if they exist
             if (map.getLayer('demo-boundaries')) {
-                console.log('Removing demo boundary layer');
+                debugLog('Removing demo boundary layer');
                 map.removeLayer('demo-boundaries');
             }
             
             // Remove sources
             if (map.getSource('forest-parcels')) {
-                console.log('Removing forest parcels source');
+                debugLog('Removing forest parcels source');
                 map.removeSource('forest-parcels');
                 parcelSourceAdded = false;
             }
             
             if (map.getSource('demo-parcels')) {
-                console.log('Removing demo parcels source');
+                debugLog('Removing demo parcels source');
                 map.removeSource('demo-parcels');
             }
             
-            console.log('✅ Parcel overlay removed successfully');
+            debugLog('✅ Parcel overlay removed successfully');
             
         } catch (error) {
-            console.error('Error removing parcel overlay:', error);
+            debugLog('Error removing parcel overlay:', error);
         }
     }
     
@@ -468,10 +502,10 @@ const MapManager = (function() {
                 });
             }
             
-            console.log('✅ Fallback demo parcel overlay added');
+            debugLog('✅ Fallback demo parcel overlay added');
             
         } catch (error) {
-            console.error('Error adding fallback overlay:', error);
+            debugLog('Error adding fallback overlay:', error);
         }
     }
     
@@ -507,7 +541,7 @@ const MapManager = (function() {
     function toggleFullscreen() {
         if (!document.fullscreenElement) {
             document.documentElement.requestFullscreen().catch(err => {
-                console.error('Error attempting to enable fullscreen:', err);
+                debugLog('Error attempting to enable fullscreen:', err);
             });
         } else {
             if (document.exitFullscreen) {
@@ -539,12 +573,12 @@ const MapManager = (function() {
     function debugLayers() {
         const style = map.getStyle();
         const layers = style.layers;
-        console.log('=== CURRENT MAP LAYERS ===');
-        console.log('Total layers:', layers.length);
+        debugLog('=== CURRENT MAP LAYERS ===');
+        debugLog('Total layers:', layers.length);
         
         layers.forEach((layer, i) => {
             const visibility = map.getLayoutProperty(layer.id, 'visibility') || 'visible';
-            console.log(`${i}: ${layer.id} (${layer.type}) - ${visibility}`);
+            debugLog(`${i}: ${layer.id} (${layer.type}) - ${visibility}`);
         });
         
         const parcelLayers = layers.filter(l => 
@@ -553,7 +587,7 @@ const MapManager = (function() {
             l.id.toLowerCase().includes('forest') ||
             l.id.toLowerCase().includes('limite')
         );
-        console.log('Parcel layers:', parcelLayers.map(l => l.id));
+        debugLog('Parcel layers:', parcelLayers.map(l => l.id));
         
         return layers;
     }

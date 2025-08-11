@@ -3,11 +3,20 @@ const ForestMapApp = (function() {
     let isInitialized = false;
     let trackingEnabled = false;
     
+    // Production flag to control debug logging
+    const DEBUG_MODE = false;
+    
+    function debugLog(...args) {
+        if (DEBUG_MODE) {
+            console.log(...args);
+        }
+    }
+    
     // Initialize application
     function init() {
         if (isInitialized) return;
         
-        console.log('Initializing Forest Map Application...');
+        debugLog('Initializing Forest Map Application...');
         
         // Initialize map
         MapManager.init();
@@ -86,7 +95,7 @@ const ForestMapApp = (function() {
     function initializeLocationTracking() {
         // Check if HTTPS (required for geolocation on iOS)
         if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-            console.warn('Geolocation requires HTTPS. Current protocol:', location.protocol);
+            debugLog('Geolocation requires HTTPS. Current protocol:', location.protocol);
             
             // Show warning for non-HTTPS
             const warningDiv = document.createElement('div');
@@ -113,7 +122,7 @@ const ForestMapApp = (function() {
         
         // Check if geolocation is available
         if (!('geolocation' in navigator)) {
-            console.error('Geolocation is not supported by this browser');
+            debugLog('Geolocation is not supported by this browser');
             LocationTracker.updateStatus('Geolocation not supported', 'error');
             
             // Show permission modal with error
@@ -142,7 +151,7 @@ const ForestMapApp = (function() {
             },
             (error) => {
                 // Error callback
-                console.error('Location error:', error);
+                debugLog('Location error:', error);
                 if (error.code === 1) { // Permission denied
                     // Show permission modal is handled in LocationTracker
                 }
@@ -164,23 +173,23 @@ const ForestMapApp = (function() {
     
     // Handle parcels button click
     function handleParcelsClick() {
-        console.log('=== PARCEL BUTTON CLICKED ===');
-        console.log('Button current classes:', this.classList.toString());
+        debugLog('=== PARCEL BUTTON CLICKED ===');
+        debugLog('Button current classes:', this.classList.toString());
         
         const isVisible = MapManager.toggleParcels();
         
-        console.log('Toggle returned isVisible:', isVisible);
+        debugLog('Toggle returned isVisible:', isVisible);
         
         // Update button state
         if (isVisible) {
-            console.log('Setting button to active (parcels ON)');
+            debugLog('Setting button to active (parcels ON)');
             this.classList.add('active');
         } else {
-            console.log('Setting button to inactive (parcels OFF)');
+            debugLog('Setting button to inactive (parcels OFF)');
             this.classList.remove('active');
         }
         
-        console.log('Button classes after update:', this.classList.toString());
+        debugLog('Button classes after update:', this.classList.toString());
         
         // Save preference
         savePreference('parcelsVisible', isVisible);
@@ -244,13 +253,13 @@ const ForestMapApp = (function() {
     
     // Handle online status
     function handleOnline() {
-        console.log('Application is online');
+        debugLog('Application is online');
         LocationTracker.updateStatus('Online - GPS Active', 'success');
     }
     
     // Handle offline status
     function handleOffline() {
-        console.log('Application is offline');
+        debugLog('Application is offline');
         LocationTracker.updateStatus('Offline Mode', 'warning');
     }
     
@@ -258,10 +267,10 @@ const ForestMapApp = (function() {
     function handleVisibilityChange() {
         if (document.hidden) {
             // App is in background - could pause some operations
-            console.log('App moved to background');
+            debugLog('App moved to background');
         } else {
             // App is in foreground - resume operations
-            console.log('App moved to foreground');
+            debugLog('App moved to foreground');
             MapManager.resize();
         }
     }
@@ -271,7 +280,7 @@ const ForestMapApp = (function() {
         try {
             localStorage.setItem(`forestMap_${key}`, value);
         } catch (e) {
-            console.error('Failed to save preference:', e);
+            debugLog('Failed to save preference:', e);
         }
     }
     
@@ -301,7 +310,7 @@ const ForestMapApp = (function() {
                 }
             }
         } catch (e) {
-            console.error('Failed to load preferences:', e);
+            debugLog('Failed to load preferences:', e);
         }
     }
     
@@ -311,10 +320,10 @@ const ForestMapApp = (function() {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('/sw.js')
                     .then(registration => {
-                        console.log('Service Worker registered:', registration);
+                        debugLog('Service Worker registered:', registration);
                     })
                     .catch(error => {
-                        console.log('Service Worker registration failed:', error);
+                        debugLog('Service Worker registration failed:', error);
                     });
             });
         }

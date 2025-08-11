@@ -6,6 +6,15 @@ const LocationTracker = (function() {
     let lastUpdate = null;
     let lastError = null;
     
+    // Production flag to control debug logging
+    const DEBUG_MODE = false;
+    
+    function debugLog(...args) {
+        if (DEBUG_MODE) {
+            console.log(...args);
+        }
+    }
+    
     // Configuration
     const config = {
         enableHighAccuracy: true,
@@ -131,7 +140,7 @@ const LocationTracker = (function() {
         }
         
         // Log to console for debugging
-        console.error('Geolocation Error:', error.code, error.message);
+        debugLog('Geolocation Error:', error.code, error.message);
         
         if (callback) {
             callback({ code: error.code, message: message, detailed: detailedMessage });
@@ -243,22 +252,22 @@ const LocationTracker = (function() {
     
     // Request permission explicitly
     function requestPermission(callback) {
-        console.log('Requesting location permission...');
-        console.log('User Agent:', navigator.userAgent);
-        console.log('Geolocation available:', 'geolocation' in navigator);
+        debugLog('Requesting location permission...');
+        debugLog('User Agent:', navigator.userAgent);
+        debugLog('Geolocation available:', 'geolocation' in navigator);
         
         hidePermissionModal();
         
         // For iOS Safari, we need to request permission directly through getCurrentPosition
         if (isIOS()) {
-            console.log('iOS detected, using direct getCurrentPosition for permission');
+            debugLog('iOS detected, using direct getCurrentPosition for permission');
             
             // Show loading message
             updateStatus('Requesting location access...', 'info');
             
             navigator.geolocation.getCurrentPosition(
                 (position) => {
-                    console.log('iOS: Location permission granted');
+                    debugLog('iOS: Location permission granted');
                     updateStatus('Location permission granted', 'success');
                     handlePositionUpdate(position);
                     if (callback) callback(true);
@@ -267,7 +276,7 @@ const LocationTracker = (function() {
                     startTracking();
                 },
                 (error) => {
-                    console.error('iOS: Location permission error:', error);
+                    debugLog('iOS: Location permission error:', error);
                     
                     if (error.code === 1) {
                         showErrorModal(
@@ -289,7 +298,7 @@ const LocationTracker = (function() {
         } else if (navigator.permissions && navigator.permissions.query) {
             // For other browsers that support Permissions API
             navigator.permissions.query({ name: 'geolocation' }).then(function(result) {
-                console.log('Permission state:', result.state);
+                debugLog('Permission state:', result.state);
                 
                 if (result.state === 'granted') {
                     hidePermissionModal();
@@ -317,7 +326,7 @@ const LocationTracker = (function() {
                     }
                 };
             }).catch(err => {
-                console.error('Permissions API error:', err);
+                debugLog('Permissions API error:', err);
                 // Fallback to direct request
                 startTracking(
                     () => { if (callback) callback(true); },
@@ -326,7 +335,7 @@ const LocationTracker = (function() {
             });
         } else {
             // Fallback for browsers that don't support permissions API
-            console.log('Permissions API not supported, using fallback');
+            debugLog('Permissions API not supported, using fallback');
             startTracking(
                 () => { if (callback) callback(true); },
                 () => { if (callback) callback(false); }
@@ -388,7 +397,7 @@ const LocationTracker = (function() {
     function showDebugInfo() {
         const debugContent = document.getElementById('debug-content');
         if (!debugContent) {
-            console.error('Debug content element not found');
+            debugLog('Debug content element not found');
             return;
         }
         
@@ -430,7 +439,7 @@ const LocationTracker = (function() {
         }
         
         debugContent.innerHTML = html;
-        console.log('Debug info updated:', info);
+        debugLog('Debug info updated:', info);
     }
     
     return {
