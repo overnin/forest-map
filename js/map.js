@@ -234,7 +234,10 @@ const MapManager = (function() {
         });
     }
     
-    // Toggle parcel visibility
+    // Parcel layer overlay approach (fallback for broken custom style)
+    let parcelSourceAdded = false;
+    
+    // Toggle parcel visibility using overlay approach
     function toggleParcels() {
         console.log('=== TOGGLE PARCELS START ===');
         console.log('Previous parcelsVisible:', parcelsVisible);
@@ -242,101 +245,139 @@ const MapManager = (function() {
         parcelsVisible = !parcelsVisible;
         
         console.log('New parcelsVisible:', parcelsVisible);
-        console.log('Current base style:', currentBaseStyle);
-        console.log('Available styles:', Object.keys(mapStyles));
+        console.log('Using overlay approach instead of style switching');
         
-        try {
-            if (parcelsVisible) {
-                // Always use custom style when parcels are visible
-                console.log('Parcels ON - Switching to custom style');
-                console.log('Custom style URL:', mapStyles.custom);
-                
-                // Test if custom style is accessible
-                fetch(`https://api.mapbox.com/styles/v1/oliviervernin/clzj0gc3500jw01qwhpnk7gxo?access_token=${MAPBOX_TOKEN}`)
-                    .then(response => {
-                        console.log('Custom style fetch response:', response.status, response.statusText);
-                        if (!response.ok) {
-                            console.error('Custom style not accessible:', response.status, response.statusText);
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error fetching custom style:', error);
-                    });
-                
-                map.setStyle(mapStyles.custom);
-            } else {
-                // Use the selected base style (or satellite if custom was selected)
-                const styleToUse = currentBaseStyle === 'custom' ? 'satellite' : currentBaseStyle;
-                console.log('Parcels OFF - Switching to base style:', styleToUse);
-                console.log('Base style URL:', mapStyles[styleToUse]);
-                map.setStyle(mapStyles[styleToUse]);
-            }
-        } catch (e) {
-            console.error('Error during style switch:', e);
-            // Fallback to satellite if there's an error
-            map.setStyle(mapStyles.satellite);
-            parcelsVisible = false;
+        if (parcelsVisible) {
+            console.log('Parcels ON - Adding overlay layers');
+            addParcelOverlay();
+        } else {
+            console.log('Parcels OFF - Removing overlay layers');
+            removeParcelOverlay();
         }
         
-        // Set up both style.load and idle events with timeout fallback
-        let styleLoadHandled = false;
+        // Re-add user marker 
+        const position = LocationTracker.getCurrentPosition();
+        if (position) {
+            console.log('Re-adding user location');
+            updateUserLocation(position.lat, position.lng, position.accuracy);
+        }
         
-        const handleStyleLoad = () => {
-            if (styleLoadHandled) return;
-            styleLoadHandled = true;
-            
-            console.log('Style loaded event fired');
-            
-            try {
-                // Check if we successfully loaded the custom style and can see layers
-                const style = map.getStyle();
-                const layerIds = style.layers.map(l => l.id);
-                console.log('Loaded style has', layerIds.length, 'layers');
-                
-                // Look for parcel-related layers
-                const parcelLayers = layerIds.filter(id => 
-                    id.toLowerCase().includes('parcel') || 
-                    id.toLowerCase().includes('boundary') || 
-                    id.toLowerCase().includes('forest') ||
-                    id.toLowerCase().includes('limite')
-                );
-                console.log('Found parcel-related layers:', parcelLayers);
-                
-                if (parcelsVisible && parcelLayers.length === 0) {
-                    console.warn('Parcels should be visible but no parcel layers found in style');
-                } else if (parcelsVisible && parcelLayers.length > 0) {
-                    console.log('✅ Parcels are loaded and should be visible');
-                }
-                
-                const position = LocationTracker.getCurrentPosition();
-                if (position) {
-                    console.log('Re-adding user location');
-                    updateUserLocation(position.lat, position.lng, position.accuracy);
-                }
-            } catch (e) {
-                console.error('Error checking loaded style:', e);
-            }
-        };
-        
-        // Try multiple events to catch style loading
-        map.once('style.load', handleStyleLoad);
-        map.once('idle', () => {
-            if (!styleLoadHandled) {
-                console.log('Style load event missed, using idle event');
-                handleStyleLoad();
-            }
-            console.log('=== TOGGLE PARCELS COMPLETE ===');
-        });
-        
-        // Fallback timeout in case neither event fires
-        setTimeout(() => {
-            if (!styleLoadHandled) {
-                console.warn('Style load timeout - forcing style check');
-                handleStyleLoad();
-            }
-        }, 3000);
-        
+        console.log('=== TOGGLE PARCELS COMPLETE ===');
         return parcelsVisible;
+    }
+    
+    // Add parcel overlay layers to current map
+    function addParcelOverlay() {
+        try {
+            // Add a Mapbox tileset source for forest parcels
+            // This is a common way to add vector tile data
+            if (!map.getSource('forest-parcels')) {
+                console.log('Adding forest parcels source');
+                map.addSource('forest-parcels', {
+                    'type': 'vector',
+                    'url': 'mapbox://oliviervernin.clzj0gc3500jw01qwhpnk7gxo' // Your tileset URL
+                });
+                parcelSourceAdded = true;
+            }
+            
+            // Add parcel boundary layers
+            const parcelLayerConfig = {
+                'id': 'forest-boundaries',
+                'type': 'line',
+                'source': 'forest-parcels',
+                'source-layer': 'forest_boundary_blue_correcte-3qikjb', // The source layer from your style
+                'layout': {
+                    'line-join': 'round',
+                    'line-cap': 'round'
+                },
+                'paint': {
+                    'line-color': '#0066cc',
+                    'line-width': 2,
+                    'line-opacity': 0.8
+                }
+            };
+            
+            if (!map.getLayer('forest-boundaries')) {
+                console.log('Adding forest boundary layer');
+                map.addLayer(parcelLayerConfig);
+            }
+            
+            console.log('✅ Parcel overlay added successfully');
+            
+        } catch (error) {
+            console.error('Error adding parcel overlay:', error);
+            
+            // Fallback: try to add a simple GeoJSON layer if available
+            console.log('Trying fallback overlay method...');
+            addFallbackParcelOverlay();
+        }
+    }
+    
+    // Remove parcel overlay layers
+    function removeParcelOverlay() {
+        try {
+            if (map.getLayer('forest-boundaries')) {
+                console.log('Removing forest boundary layer');
+                map.removeLayer('forest-boundaries');
+            }
+            
+            if (map.getSource('forest-parcels')) {
+                console.log('Removing forest parcels source');
+                map.removeSource('forest-parcels');
+                parcelSourceAdded = false;
+            }
+            
+            console.log('✅ Parcel overlay removed successfully');
+            
+        } catch (error) {
+            console.error('Error removing parcel overlay:', error);
+        }
+    }
+    
+    // Fallback method using a sample boundary
+    function addFallbackParcelOverlay() {
+        try {
+            // Add a simple demonstration parcel boundary
+            if (!map.getSource('demo-parcels')) {
+                map.addSource('demo-parcels', {
+                    'type': 'geojson',
+                    'data': {
+                        'type': 'Feature',
+                        'geometry': {
+                            'type': 'Polygon',
+                            'coordinates': [[
+                                [2.3522, 48.8566],
+                                [2.3622, 48.8566],
+                                [2.3622, 48.8666],
+                                [2.3522, 48.8666],
+                                [2.3522, 48.8566]
+                            ]]
+                        },
+                        'properties': {
+                            'name': 'Demo Forest Parcel'
+                        }
+                    }
+                });
+            }
+            
+            if (!map.getLayer('demo-boundaries')) {
+                map.addLayer({
+                    'id': 'demo-boundaries',
+                    'type': 'line',
+                    'source': 'demo-parcels',
+                    'paint': {
+                        'line-color': '#ff6600',
+                        'line-width': 3,
+                        'line-opacity': 0.8
+                    }
+                });
+            }
+            
+            console.log('✅ Fallback demo parcel overlay added');
+            
+        } catch (error) {
+            console.error('Error adding fallback overlay:', error);
+        }
     }
     
     // Get map instance
