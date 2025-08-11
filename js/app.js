@@ -89,6 +89,12 @@ const ForestMapApp = (function() {
         
         // Handle visibility change (app going to background)
         document.addEventListener('visibilitychange', handleVisibilityChange);
+        
+        // Handle fullscreen change events to keep button state in sync
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        document.addEventListener('webkitfullscreenchange', handleFullscreenChange); // Safari
+        document.addEventListener('mozfullscreenchange', handleFullscreenChange); // Firefox
+        document.addEventListener('msfullscreenchange', handleFullscreenChange); // IE/Edge
     }
     
     // Initialize location tracking
@@ -205,13 +211,7 @@ const ForestMapApp = (function() {
     // Handle fullscreen button click
     function handleFullscreenClick() {
         MapManager.toggleFullscreen();
-        
-        // Update button icon based on fullscreen state
-        if (document.fullscreenElement) {
-            this.classList.add('active');
-        } else {
-            this.classList.remove('active');
-        }
+        // Button state will be updated by fullscreen event listeners
     }
     
     // Handle layer change
@@ -272,6 +272,26 @@ const ForestMapApp = (function() {
             // App is in foreground - resume operations
             debugLog('App moved to foreground');
             MapManager.resize();
+        }
+    }
+    
+    // Handle fullscreen change events
+    function handleFullscreenChange() {
+        const fullscreenBtn = document.getElementById('fullscreen-btn');
+        if (!fullscreenBtn) return;
+        
+        // Check if we're in fullscreen mode
+        const isFullscreen = !!(document.fullscreenElement || 
+                               document.webkitFullscreenElement || 
+                               document.mozFullScreenElement || 
+                               document.msFullscreenElement);
+        
+        if (isFullscreen) {
+            fullscreenBtn.classList.add('active');
+            debugLog('Entered fullscreen mode');
+        } else {
+            fullscreenBtn.classList.remove('active');
+            debugLog('Exited fullscreen mode');
         }
     }
     
