@@ -268,47 +268,118 @@ const MapManager = (function() {
     
     // Add parcel overlay layers to current map
     function addParcelOverlay() {
-        try {
-            // Add a Mapbox tileset source for forest parcels
-            // This is a common way to add vector tile data
-            if (!map.getSource('forest-parcels')) {
-                console.log('Adding forest parcels source');
-                map.addSource('forest-parcels', {
-                    'type': 'vector',
-                    'url': 'mapbox://oliviervernin.clzj0gc3500jw01qwhpnk7gxo' // Your tileset URL
-                });
-                parcelSourceAdded = true;
-            }
-            
-            // Add parcel boundary layers
-            const parcelLayerConfig = {
-                'id': 'forest-boundaries',
-                'type': 'line',
-                'source': 'forest-parcels',
-                'source-layer': 'forest_boundary_blue_correcte-3qikjb', // The source layer from your style
-                'layout': {
-                    'line-join': 'round',
-                    'line-cap': 'round'
-                },
-                'paint': {
-                    'line-color': '#0066cc',
-                    'line-width': 2,
-                    'line-opacity': 0.8
+        console.log('Attempting to add parcel overlay...');
+        
+        // Fetch the custom style to extract the real source configuration
+        fetch(`https://api.mapbox.com/styles/v1/oliviervernin/clzj0gc3500jw01qwhpnk7gxo?access_token=${MAPBOX_TOKEN}`)
+            .then(response => {
+                console.log('Style fetch response:', response.status);
+                if (!response.ok) {
+                    throw new Error(`Style fetch failed: ${response.status}`);
                 }
-            };
-            
-            if (!map.getLayer('forest-boundaries')) {
-                console.log('Adding forest boundary layer');
-                map.addLayer(parcelLayerConfig);
+                return response.json();
+            })
+            .then(styleData => {
+                console.log('Style data received, sources:', Object.keys(styleData.sources));
+                
+                // Find the source that contains parcel data
+                const parcelSourceKey = Object.keys(styleData.sources).find(key => 
+                    key.toLowerCase().includes('forest') || 
+                    key.toLowerCase().includes('parcel') ||
+                    key.toLowerCase().includes('boundary')
+                );
+                
+                if (!parcelSourceKey) {
+                    console.warn('No parcel source found in style, using composite');
+                    // Try using composite source
+                    addParcelLayersFromComposite(styleData);
+                } else {
+                    console.log('Found parcel source:', parcelSourceKey);
+                    const sourceConfig = styleData.sources[parcelSourceKey];
+                    addParcelLayersFromSource(sourceConfig, styleData);
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching style data:', error);
+                console.log('Trying fallback overlay method...');
+                addFallbackParcelOverlay();
+            });
+    }
+    
+    // Add parcel layers using extracted source configuration
+    function addParcelLayersFromSource(sourceConfig, styleData) {
+        try {
+            if (!map.getSource('forest-parcels')) {
+                console.log('Adding forest parcels source with config:', sourceConfig);
+                map.addSource('forest-parcels', sourceConfig);
             }
             
-            console.log('✅ Parcel overlay added successfully');
+            // Find parcel-related layers in the style
+            const parcelLayers = styleData.layers.filter(layer => 
+                layer.id.toLowerCase().includes('forest') ||
+                layer.id.toLowerCase().includes('parcel') ||
+                layer.id.toLowerCase().includes('boundary') ||
+                layer.id.toLowerCase().includes('limite')
+            );
+            
+            console.log('Found parcel layers:', parcelLayers.map(l => l.id));
+            
+            // Add the first parcel layer found
+            if (parcelLayers.length > 0) {
+                const layerConfig = parcelLayers[0];
+                layerConfig.source = 'forest-parcels'; // Use our source
+                
+                if (!map.getLayer(layerConfig.id)) {
+                    console.log('Adding parcel layer:', layerConfig.id);
+                    map.addLayer(layerConfig);
+                }
+                console.log('✅ Parcel overlay added successfully');
+            } else {
+                console.warn('No parcel layers found in style');
+                addFallbackParcelOverlay();
+            }
             
         } catch (error) {
-            console.error('Error adding parcel overlay:', error);
+            console.error('Error adding parcel layers from source:', error);
+            addFallbackParcelOverlay();
+        }
+    }
+    
+    // Try using composite source (fallback)
+    function addParcelLayersFromComposite(styleData) {
+        try {
+            // Use the composite source from the style
+            if (!map.getSource('forest-parcels') && styleData.sources.composite) {
+                console.log('Adding composite source for parcels');
+                map.addSource('forest-parcels', styleData.sources.composite);
+            }
             
-            // Fallback: try to add a simple GeoJSON layer if available
-            console.log('Trying fallback overlay method...');
+            // Find parcel layers that use composite source
+            const parcelLayers = styleData.layers.filter(layer => 
+                layer.source === 'composite' && (
+                    layer.id.toLowerCase().includes('forest') ||
+                    layer.id.toLowerCase().includes('parcel') ||
+                    layer.id.toLowerCase().includes('boundary') ||
+                    layer.id.toLowerCase().includes('limite')
+                )
+            );
+            
+            if (parcelLayers.length > 0) {
+                const layerConfig = parcelLayers[0];
+                layerConfig.source = 'forest-parcels';
+                
+                if (!map.getLayer(layerConfig.id)) {
+                    console.log('Adding parcel layer from composite:', layerConfig.id);
+                    map.addLayer(layerConfig);
+                }
+                console.log('✅ Parcel overlay added from composite source');
+            } else {
+                console.warn('No parcel layers found in composite source');
+                addFallbackParcelOverlay();
+            }
+            
+        } catch (error) {
+            console.error('Error adding parcel layers from composite:', error);
             addFallbackParcelOverlay();
         }
     }
@@ -316,15 +387,39 @@ const MapManager = (function() {
     // Remove parcel overlay layers
     function removeParcelOverlay() {
         try {
-            if (map.getLayer('forest-boundaries')) {
-                console.log('Removing forest boundary layer');
-                map.removeLayer('forest-boundaries');
+            // Remove all parcel-related layers
+            const currentLayers = map.getStyle().layers;
+            const parcelLayers = currentLayers.filter(layer => 
+                layer.source === 'forest-parcels' ||
+                layer.id.toLowerCase().includes('forest') ||
+                layer.id.toLowerCase().includes('parcel') ||
+                layer.id.toLowerCase().includes('boundary') ||
+                layer.id.toLowerCase().includes('limite')
+            );
+            
+            parcelLayers.forEach(layer => {
+                if (map.getLayer(layer.id)) {
+                    console.log('Removing parcel layer:', layer.id);
+                    map.removeLayer(layer.id);
+                }
+            });
+            
+            // Remove demo layers if they exist
+            if (map.getLayer('demo-boundaries')) {
+                console.log('Removing demo boundary layer');
+                map.removeLayer('demo-boundaries');
             }
             
+            // Remove sources
             if (map.getSource('forest-parcels')) {
                 console.log('Removing forest parcels source');
                 map.removeSource('forest-parcels');
                 parcelSourceAdded = false;
+            }
+            
+            if (map.getSource('demo-parcels')) {
+                console.log('Removing demo parcels source');
+                map.removeSource('demo-parcels');
             }
             
             console.log('✅ Parcel overlay removed successfully');
