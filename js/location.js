@@ -4,6 +4,7 @@ const LocationTracker = (function() {
     let currentPosition = null;
     let isTracking = false;
     let lastUpdate = null;
+    let lastError = null;
     
     // Configuration
     const config = {
@@ -120,6 +121,9 @@ const LocationTracker = (function() {
         }
         
         updateStatus(message, 'error');
+        
+        // Track error for debug
+        lastError = `Code ${error.code}: ${message}`;
         
         // Show detailed error in modal for iOS
         if (isIOS()) {
@@ -375,27 +379,50 @@ const LocationTracker = (function() {
     // Show debug information
     function showDebugInfo() {
         const debugContent = document.getElementById('debug-content');
-        if (debugContent) {
-            const info = {
-                'Browser': navigator.userAgent,
-                'Protocol': location.protocol,
-                'Hostname': location.hostname,
-                'HTTPS': location.protocol === 'https:' ? 'Yes' : 'No',
-                'Geolocation API': 'geolocation' in navigator ? 'Available' : 'Not Available',
-                'Permissions API': 'permissions' in navigator ? 'Available' : 'Not Available',
-                'iOS Device': isIOS() ? 'Yes' : 'No',
-                'Current Position': currentPosition ? `${currentPosition.lat.toFixed(6)}, ${currentPosition.lng.toFixed(6)}` : 'Not available',
-                'Tracking Active': isTracking ? 'Yes' : 'No'
-            };
-            
-            let html = '<table style="width: 100%; font-size: 11px;">';
-            for (const [key, value] of Object.entries(info)) {
-                html += `<tr><td style="padding: 2px;"><strong>${key}:</strong></td><td style="padding: 2px;">${value}</td></tr>`;
-            }
-            html += '</table>';
-            
-            debugContent.innerHTML = html;
+        if (!debugContent) {
+            console.error('Debug content element not found');
+            return;
         }
+        
+        // Get user agent details
+        const ua = navigator.userAgent;
+        const isIOSSafari = isIOS() && ua.indexOf('Safari') > -1 && ua.indexOf('Chrome') === -1;
+        const iOSVersion = isIOS() ? (ua.match(/OS (\d+)_(\d+)/) || ['', '?', '?'])[1] + '.' + (ua.match(/OS (\d+)_(\d+)/) || ['', '?', '?'])[2] : 'N/A';
+        
+        const info = {
+            'Protocol': location.protocol,
+            'HTTPS': location.protocol === 'https:' ? '✅ Yes' : '❌ No (Required for iOS)',
+            'Hostname': location.hostname,
+            'iOS Device': isIOS() ? '✅ Yes' : '❌ No',
+            'iOS Version': iOSVersion,
+            'Safari': isIOSSafari ? '✅ Yes' : '❌ No',
+            'Geolocation API': 'geolocation' in navigator ? '✅ Available' : '❌ Not Available',
+            'Permissions API': 'permissions' in navigator ? '✅ Available' : '⚠️ Not Available (Normal for iOS)',
+            'Current Position': currentPosition ? `📍 ${currentPosition.lat.toFixed(4)}, ${currentPosition.lng.toFixed(4)}` : '❌ Not available',
+            'Accuracy': currentPosition ? `±${Math.round(currentPosition.accuracy)}m` : 'N/A',
+            'Tracking Active': isTracking ? '✅ Yes' : '❌ No',
+            'Last Error': lastError || 'None',
+            'User Agent': ua.substring(0, 100) + '...'
+        };
+        
+        let html = '<table style="width: 100%; font-size: 11px; line-height: 1.4;">';
+        for (const [key, value] of Object.entries(info)) {
+            const bgColor = value.includes('❌') ? '#ffebee' : value.includes('✅') ? '#e8f5e9' : 'transparent';
+            html += `<tr style="background: ${bgColor};"><td style="padding: 3px; font-weight: bold; vertical-align: top;">${key}:</td><td style="padding: 3px; word-break: break-word;">${value}</td></tr>`;
+        }
+        html += '</table>';
+        
+        // Add instructions based on detected issues
+        if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+            html += '<div style="margin-top: 10px; padding: 8px; background: #fff3e0; border-radius: 4px; font-size: 11px;"><strong>⚠️ HTTPS Required:</strong> iOS requires HTTPS for location services. Please use the HTTPS version of this page.</div>';
+        }
+        
+        if (isIOS() && !currentPosition) {
+            html += '<div style="margin-top: 10px; padding: 8px; background: #e3f2fd; border-radius: 4px; font-size: 11px;"><strong>📱 iOS Instructions:</strong><br>1. Settings → Privacy & Security → Location Services<br>2. Enable Location Services<br>3. Find Safari Websites → Set to "While Using App"<br>4. Return here and tap "Enable Location"</div>';
+        }
+        
+        debugContent.innerHTML = html;
+        console.log('Debug info updated:', info);
     }
     
     return {

@@ -57,6 +57,18 @@ const ForestMapApp = (function() {
             permissionBtn.addEventListener('click', handlePermissionRequest);
         }
         
+        // Debug info button
+        const debugBtn = document.getElementById('debug-btn');
+        if (debugBtn) {
+            debugBtn.addEventListener('click', () => {
+                const debugInfo = document.getElementById('debug-info');
+                if (debugInfo) {
+                    debugInfo.style.display = debugInfo.style.display === 'none' ? 'block' : 'none';
+                    LocationTracker.showDebugInfo();
+                }
+            });
+        }
+        
         // Close layer selector when clicking outside
         document.addEventListener('click', (e) => {
             const layerSelector = document.getElementById('layer-selector');
