@@ -82,6 +82,40 @@ const ForestMapApp = (function() {
     
     // Initialize location tracking
     function initializeLocationTracking() {
+        // Check if HTTPS (required for geolocation on iOS)
+        if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+            console.warn('Geolocation requires HTTPS. Current protocol:', location.protocol);
+            
+            // Show warning for non-HTTPS
+            const warningDiv = document.createElement('div');
+            warningDiv.style.cssText = `
+                position: fixed;
+                top: 20px;
+                left: 20px;
+                right: 20px;
+                background: #ff9800;
+                color: white;
+                padding: 15px;
+                border-radius: 8px;
+                z-index: 3000;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            `;
+            warningDiv.innerHTML = `
+                <strong>HTTPS Required</strong><br>
+                <small>Location services require HTTPS. Please use: ${location.href.replace('http:', 'https:')}</small>
+            `;
+            document.body.appendChild(warningDiv);
+            
+            setTimeout(() => warningDiv.remove(), 8000);
+        }
+        
+        // Check if geolocation is available
+        if (!('geolocation' in navigator)) {
+            console.error('Geolocation is not supported by this browser');
+            LocationTracker.updateStatus('Geolocation not supported', 'error');
+            return;
+        }
+        
         LocationTracker.startTracking(
             (position) => {
                 // Success callback

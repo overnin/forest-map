@@ -98,6 +98,11 @@
             <h2>Location Access Required</h2>
             <p>This app needs access to your location to show your position on the map.</p>
             <button id="request-permission" class="primary-btn">Enable Location</button>
+            <div id="debug-info" style="margin-top: 15px; padding: 10px; background: #f0f0f0; border-radius: 4px; font-size: 12px; color: #666; display: none;">
+                <strong>Debug Info:</strong>
+                <div id="debug-content"></div>
+            </div>
+            <button onclick="document.getElementById('debug-info').style.display='block'; LocationTracker.showDebugInfo();" style="margin-top: 10px; font-size: 12px; background: #eee; border: none; padding: 5px 10px; border-radius: 4px;">Show Debug Info</button>
         </div>
     </div>
     

@@ -97,27 +97,40 @@ const LocationTracker = (function() {
     // Handle position error
     function handlePositionError(error, callback) {
         let message = '';
+        let detailedMessage = '';
         
         switch(error.code) {
             case error.PERMISSION_DENIED:
                 message = 'Location permission denied';
+                detailedMessage = 'Please enable location services in Settings > Privacy > Location Services';
                 showPermissionModal();
                 break;
             case error.POSITION_UNAVAILABLE:
                 message = 'Location information unavailable';
+                detailedMessage = 'GPS signal not available. Try moving to an open area.';
                 break;
             case error.TIMEOUT:
                 message = 'Location request timed out';
+                detailedMessage = 'GPS is taking too long. Please try again.';
                 break;
             default:
                 message = 'An unknown error occurred';
+                detailedMessage = `Error code: ${error.code}, Message: ${error.message}`;
                 break;
         }
         
         updateStatus(message, 'error');
         
+        // Show detailed error in modal for iOS
+        if (isIOS()) {
+            showErrorModal(message, detailedMessage);
+        }
+        
+        // Log to console for debugging
+        console.error('Geolocation Error:', error.code, error.message);
+        
         if (callback) {
-            callback({ code: error.code, message: message });
+            callback({ code: error.code, message: message, detailed: detailedMessage });
         }
     }
     
@@ -175,22 +188,112 @@ const LocationTracker = (function() {
         }
     }
     
+    // Detect if iOS
+    function isIOS() {
+        return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    }
+    
+    // Show error modal with detailed message
+    function showErrorModal(title, message) {
+        // Create or update error display
+        let errorDiv = document.getElementById('error-display');
+        if (!errorDiv) {
+            errorDiv = document.createElement('div');
+            errorDiv.id = 'error-display';
+            errorDiv.style.cssText = `
+                position: fixed;
+                top: 20px;
+                left: 20px;
+                right: 20px;
+                background: #ff5252;
+                color: white;
+                padding: 15px;
+                border-radius: 8px;
+                z-index: 3000;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            `;
+            document.body.appendChild(errorDiv);
+        }
+        
+        errorDiv.innerHTML = `
+            <strong>${title}</strong><br>
+            <small>${message}</small><br>
+            <small style="opacity: 0.8;">Device: ${navigator.userAgent}</small>
+        `;
+        
+        // Auto-hide after 10 seconds
+        setTimeout(() => {
+            if (errorDiv) {
+                errorDiv.remove();
+            }
+        }, 10000);
+    }
+    
     // Request permission explicitly
     function requestPermission(callback) {
-        if (navigator.permissions && navigator.permissions.query) {
+        console.log('Requesting location permission...');
+        console.log('User Agent:', navigator.userAgent);
+        console.log('Geolocation available:', 'geolocation' in navigator);
+        
+        hidePermissionModal();
+        
+        // For iOS Safari, we need to request permission directly through getCurrentPosition
+        if (isIOS()) {
+            console.log('iOS detected, using direct getCurrentPosition for permission');
+            
+            // Show loading message
+            updateStatus('Requesting location access...', 'info');
+            
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    console.log('iOS: Location permission granted');
+                    updateStatus('Location permission granted', 'success');
+                    handlePositionUpdate(position);
+                    if (callback) callback(true);
+                    
+                    // Now start continuous tracking
+                    startTracking();
+                },
+                (error) => {
+                    console.error('iOS: Location permission error:', error);
+                    
+                    if (error.code === 1) {
+                        showErrorModal(
+                            'Location Access Required',
+                            'Please enable location for Safari: Settings > Privacy & Security > Location Services > Safari Websites > While Using App'
+                        );
+                    } else {
+                        handlePositionError(error);
+                    }
+                    
+                    if (callback) callback(false);
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                }
+            );
+        } else if (navigator.permissions && navigator.permissions.query) {
+            // For other browsers that support Permissions API
             navigator.permissions.query({ name: 'geolocation' }).then(function(result) {
+                console.log('Permission state:', result.state);
+                
                 if (result.state === 'granted') {
                     hidePermissionModal();
                     if (callback) callback(true);
+                    startTracking();
                 } else if (result.state === 'prompt') {
                     // Will prompt user
-                    hidePermissionModal();
                     startTracking(
                         () => { if (callback) callback(true); },
                         () => { if (callback) callback(false); }
                     );
                 } else if (result.state === 'denied') {
-                    alert('Location permission denied. Please enable it in your browser settings.');
+                    showErrorModal(
+                        'Location Permission Denied',
+                        'Please enable location in your browser settings and reload the page.'
+                    );
                     if (callback) callback(false);
                 }
                 
@@ -201,10 +304,17 @@ const LocationTracker = (function() {
                         startTracking();
                     }
                 };
+            }).catch(err => {
+                console.error('Permissions API error:', err);
+                // Fallback to direct request
+                startTracking(
+                    () => { if (callback) callback(true); },
+                    () => { if (callback) callback(false); }
+                );
             });
         } else {
             // Fallback for browsers that don't support permissions API
-            hidePermissionModal();
+            console.log('Permissions API not supported, using fallback');
             startTracking(
                 () => { if (callback) callback(true); },
                 () => { if (callback) callback(false); }
@@ -262,6 +372,32 @@ const LocationTracker = (function() {
         return `${degrees}°${minutes}'${seconds}"${direction}`;
     }
     
+    // Show debug information
+    function showDebugInfo() {
+        const debugContent = document.getElementById('debug-content');
+        if (debugContent) {
+            const info = {
+                'Browser': navigator.userAgent,
+                'Protocol': location.protocol,
+                'Hostname': location.hostname,
+                'HTTPS': location.protocol === 'https:' ? 'Yes' : 'No',
+                'Geolocation API': 'geolocation' in navigator ? 'Available' : 'Not Available',
+                'Permissions API': 'permissions' in navigator ? 'Available' : 'Not Available',
+                'iOS Device': isIOS() ? 'Yes' : 'No',
+                'Current Position': currentPosition ? `${currentPosition.lat.toFixed(6)}, ${currentPosition.lng.toFixed(6)}` : 'Not available',
+                'Tracking Active': isTracking ? 'Yes' : 'No'
+            };
+            
+            let html = '<table style="width: 100%; font-size: 11px;">';
+            for (const [key, value] of Object.entries(info)) {
+                html += `<tr><td style="padding: 2px;"><strong>${key}:</strong></td><td style="padding: 2px;">${value}</td></tr>`;
+            }
+            html += '</table>';
+            
+            debugContent.innerHTML = html;
+        }
+    }
+    
     return {
         startTracking,
         stopTracking,
@@ -271,6 +407,7 @@ const LocationTracker = (function() {
         calculateDistance,
         formatCoordinates,
         updateStatus,
-        hidePermissionModal
+        hidePermissionModal,
+        showDebugInfo
     };
 })();
