@@ -1,0 +1,43 @@
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Claude Flow and development files
+.claude/
+.claude-flow/
+.hive-mind/
+.roo/
+.swarm/
+.roomodes
+.mcp.json
+claude-flow*
+CLAUDE.md
+coordination/
+memory/
+app/
+docs/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Database files
+*.db
+*.db-journal
+*.db-wal
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+
+# Temporary files
+*.tmp
+*.temp

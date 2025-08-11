@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#2E7D32">
+    <title>Forest Map - GPS Tracker</title>
+    
+    <!-- Mapbox GL JS -->
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.0.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.0.0/mapbox-gl.js"></script>
+    
+    <!-- App Styles -->
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="manifest" href="manifest.json">
+</head>
+<body>
+    <!-- Map Container -->
+    <div id="map"></div>
+    
+    <!-- Control Panel -->
+    <div class="control-panel">
+        <button id="locate-btn" class="control-btn" title="Center on my location">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M12 2v4m0 12v4m10-10h-4M6 12H2"></path>
+            </svg>
+        </button>
+        <button id="parcels-btn" class="control-btn active" title="Toggle forest parcels">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="7" height="7"></rect>
+                <rect x="14" y="3" width="7" height="7"></rect>
+                <rect x="3" y="14" width="7" height="7"></rect>
+                <rect x="14" y="14" width="7" height="7"></rect>
+            </svg>
+        </button>
+        <button id="layer-btn" class="control-btn" title="Toggle map layers">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M12 2L2 7v10l10 5 10-5V7l-10-5z"></path>
+                <path d="M12 22V12"></path>
+                <path d="M22 7l-10 5L2 7"></path>
+            </svg>
+        </button>
+        <button id="fullscreen-btn" class="control-btn" title="Toggle fullscreen">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+            </svg>
+        </button>
+    </div>
+    
+    <!-- Status Bar -->
+    <div class="status-bar">
+        <div class="status-item">
+            <span class="status-label">GPS:</span>
+            <span id="gps-status" class="status-value">Initializing...</span>
+        </div>
+        <div class="status-item">
+            <span class="status-label">Accuracy:</span>
+            <span id="accuracy-status" class="status-value">--</span>
+        </div>
+        <div class="status-item">
+            <span class="status-label">Coordinates:</span>
+            <span id="coords-status" class="status-value">--, --</span>
+        </div>
+    </div>
+    
+    <!-- Layer Selector (Hidden by default) -->
+    <div id="layer-selector" class="layer-selector hidden">
+        <h3>Map Layers</h3>
+        <p style="font-size: 12px; color: #666; margin: 8px 0;">Note: When parcels are visible, the custom forest style is used</p>
+        <label class="layer-option">
+            <input type="radio" name="map-style" value="streets">
+            <span>Streets</span>
+        </label>
+        <label class="layer-option">
+            <input type="radio" name="map-style" value="satellite">
+            <span>Satellite</span>
+        </label>
+        <label class="layer-option">
+            <input type="radio" name="map-style" value="terrain">
+            <span>Terrain</span>
+        </label>
+        <label class="layer-option">
+            <input type="radio" name="map-style" value="hybrid">
+            <span>Hybrid</span>
+        </label>
+        <label class="layer-option">
+            <input type="radio" name="map-style" value="custom" checked>
+            <span>Forest Style (with parcels)</span>
+        </label>
+    </div>
+    
+    <!-- Permission Request Modal -->
+    <div id="permission-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>Location Access Required</h2>
+            <p>This app needs access to your location to show your position on the map.</p>
+            <button id="request-permission" class="primary-btn">Enable Location</button>
+        </div>
+    </div>
+    
+    <!-- Scripts -->
+    <script src="js/map.js"></script>
+    <script src="js/location.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

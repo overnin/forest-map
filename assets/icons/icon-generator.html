@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Icon Generator for Forest Map</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        .icon-preview {
+            display: inline-block;
+            margin: 10px;
+            text-align: center;
+        }
+        canvas {
+            border: 1px solid #ddd;
+            display: block;
+            margin: 10px auto;
+        }
+        h2 {
+            color: #2E7D32;
+        }
+        .instructions {
+            background: #e8f5e9;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Forest Map Icon Generator</h1>
+        <div class="instructions">
+            <h3>Instructions:</h3>
+            <p>1. Open this file in a browser</p>
+            <p>2. Right-click on each canvas and select "Save image as..."</p>
+            <p>3. Save with the filename shown below each icon</p>
+            <p>4. Place all icons in the /app/assets/icons/ directory</p>
+        </div>
+        
+        <h2>Generated Icons:</h2>
+        <div id="icons"></div>
+    </div>
+
+    <script>
+        // Icon sizes to generate
+        const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
+        
+        // Create icons
+        sizes.forEach(size => {
+            const div = document.createElement('div');
+            div.className = 'icon-preview';
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            
+            const ctx = canvas.getContext('2d');
+            
+            // Background
+            ctx.fillStyle = '#2E7D32';
+            ctx.fillRect(0, 0, size, size);
+            
+            // Draw a simple tree/forest icon
+            ctx.fillStyle = '#ffffff';
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = size / 20;
+            
+            // Tree trunk
+            const trunkWidth = size * 0.15;
+            const trunkHeight = size * 0.3;
+            const trunkX = (size - trunkWidth) / 2;
+            const trunkY = size * 0.6;
+            ctx.fillRect(trunkX, trunkY, trunkWidth, trunkHeight);
+            
+            // Tree crown (triangle)
+            ctx.beginPath();
+            ctx.moveTo(size * 0.5, size * 0.15);
+            ctx.lineTo(size * 0.2, size * 0.65);
+            ctx.lineTo(size * 0.8, size * 0.65);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Add location pin at bottom
+            const pinSize = size * 0.2;
+            const pinX = size * 0.5;
+            const pinY = size * 0.85;
+            
+            ctx.beginPath();
+            ctx.arc(pinX, pinY - pinSize * 0.3, pinSize * 0.3, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.moveTo(pinX - pinSize * 0.3, pinY - pinSize * 0.3);
+            ctx.lineTo(pinX, pinY);
+            ctx.lineTo(pinX + pinSize * 0.3, pinY - pinSize * 0.3);
+            ctx.fill();
+            
+            // Add canvas to page
+            div.appendChild(canvas);
+            
+            const label = document.createElement('p');
+            label.textContent = `icon-${size}x${size}.png`;
+            label.style.fontSize = '12px';
+            label.style.color = '#666';
+            div.appendChild(label);
+            
+            document.getElementById('icons').appendChild(div);
+        });
+    </script>
+</body>
+</html>
