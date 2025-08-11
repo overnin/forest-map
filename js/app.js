@@ -57,17 +57,7 @@ const ForestMapApp = (function() {
             permissionBtn.addEventListener('click', handlePermissionRequest);
         }
         
-        // Debug info button
-        const debugBtn = document.getElementById('debug-btn');
-        if (debugBtn) {
-            debugBtn.addEventListener('click', () => {
-                const debugInfo = document.getElementById('debug-info');
-                if (debugInfo) {
-                    debugInfo.style.display = debugInfo.style.display === 'none' ? 'block' : 'none';
-                    LocationTracker.showDebugInfo();
-                }
-            });
-        }
+        // Debug button handled inline in HTML
         
         // Close layer selector when clicking outside
         document.addEventListener('click', (e) => {
@@ -125,6 +115,17 @@ const ForestMapApp = (function() {
         if (!('geolocation' in navigator)) {
             console.error('Geolocation is not supported by this browser');
             LocationTracker.updateStatus('Geolocation not supported', 'error');
+            
+            // Show permission modal with error
+            const modal = document.getElementById('permission-modal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                const debugInfo = document.getElementById('debug-info');
+                if (debugInfo) {
+                    debugInfo.style.display = 'block';
+                    LocationTracker.showDebugInfo();
+                }
+            }
             return;
         }
         

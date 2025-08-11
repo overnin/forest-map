@@ -156,6 +156,8 @@ body {
     align-items: center;
     justify-content: center;
     z-index: 2000;
+    overflow-y: auto;
+    padding: 20px;
 }
 
 .modal-content {
@@ -165,6 +167,9 @@ body {
     max-width: 400px;
     width: 90%;
     text-align: center;
+    max-height: 90vh;
+    overflow-y: auto;
+    margin: auto;
 }
 
 .modal-content h2 {

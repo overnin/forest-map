@@ -181,6 +181,14 @@ const LocationTracker = (function() {
         const modal = document.getElementById('permission-modal');
         if (modal) {
             modal.classList.remove('hidden');
+            // Auto-show debug info when modal opens
+            setTimeout(() => {
+                const debugInfo = document.getElementById('debug-info');
+                if (debugInfo) {
+                    debugInfo.style.display = 'block';
+                    showDebugInfo();
+                }
+            }, 100);
         }
     }
     
