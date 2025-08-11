@@ -164,14 +164,23 @@ const ForestMapApp = (function() {
     
     // Handle parcels button click
     function handleParcelsClick() {
+        console.log('=== PARCEL BUTTON CLICKED ===');
+        console.log('Button current classes:', this.classList.toString());
+        
         const isVisible = MapManager.toggleParcels();
+        
+        console.log('Toggle returned isVisible:', isVisible);
         
         // Update button state
         if (isVisible) {
+            console.log('Setting button to active (parcels ON)');
             this.classList.add('active');
         } else {
+            console.log('Setting button to inactive (parcels OFF)');
             this.classList.remove('active');
         }
+        
+        console.log('Button classes after update:', this.classList.toString());
         
         // Save preference
         savePreference('parcelsVisible', isVisible);

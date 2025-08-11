@@ -18,6 +18,8 @@ const MapManager = (function() {
     let currentBaseStyle = 'satellite';
     let parcelsVisible = true;
     
+    console.log('Map module initialized - parcelsVisible:', parcelsVisible);
+    
     // Initialize map
     function init() {
         mapboxgl.accessToken = MAPBOX_TOKEN;
@@ -229,24 +231,30 @@ const MapManager = (function() {
     
     // Toggle parcel visibility
     function toggleParcels() {
+        console.log('=== TOGGLE PARCELS START ===');
+        console.log('Previous parcelsVisible:', parcelsVisible);
+        
         parcelsVisible = !parcelsVisible;
         
-        console.log('Toggling parcels:', parcelsVisible ? 'ON' : 'OFF');
+        console.log('New parcelsVisible:', parcelsVisible);
         console.log('Current base style:', currentBaseStyle);
+        console.log('Available styles:', Object.keys(mapStyles));
         
         try {
             if (parcelsVisible) {
                 // Always use custom style when parcels are visible
-                console.log('Switching to custom style for parcels');
+                console.log('Parcels ON - Switching to custom style');
+                console.log('Custom style URL:', mapStyles.custom);
                 map.setStyle(mapStyles.custom);
             } else {
                 // Use the selected base style (or satellite if custom was selected)
                 const styleToUse = currentBaseStyle === 'custom' ? 'satellite' : currentBaseStyle;
-                console.log('Switching to base style:', styleToUse);
+                console.log('Parcels OFF - Switching to base style:', styleToUse);
+                console.log('Base style URL:', mapStyles[styleToUse]);
                 map.setStyle(mapStyles[styleToUse]);
             }
         } catch (e) {
-            console.warn('Error during style switch:', e);
+            console.error('Error during style switch:', e);
             // Fallback to satellite if there's an error
             map.setStyle(mapStyles.satellite);
             parcelsVisible = false;
@@ -254,16 +262,17 @@ const MapManager = (function() {
         
         // Re-add user marker after style change
         map.once('style.load', () => {
-            console.log('Style loaded, re-adding user location');
+            console.log('Style loaded event fired');
             const position = LocationTracker.getCurrentPosition();
             if (position) {
+                console.log('Re-adding user location');
                 updateUserLocation(position.lat, position.lng, position.accuracy);
             }
         });
         
         // Clear any lingering errors
         map.once('idle', () => {
-            console.log('Toggle completed successfully');
+            console.log('=== TOGGLE PARCELS COMPLETE ===');
         });
         
         return parcelsVisible;
