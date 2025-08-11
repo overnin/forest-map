@@ -75,6 +75,11 @@ const MapManager = (function() {
                 console.log('Terrain configuration notice (can be ignored):', e.error.message);
                 return;
             }
+            // Ignore raster-emissive-strength warnings
+            if (e.error && e.error.message && e.error.message.includes('raster-emissive-strength')) {
+                console.log('Style property notice (can be ignored):', e.error.message);
+                return;
+            }
             console.error('Map error:', e.error);
         });
     }
@@ -263,6 +268,27 @@ const MapManager = (function() {
         // Re-add user marker after style change
         map.once('style.load', () => {
             console.log('Style loaded event fired');
+            
+            // Check if we successfully loaded the custom style and can see layers
+            const style = map.getStyle();
+            const layerIds = style.layers.map(l => l.id);
+            console.log('Loaded style has', layerIds.length, 'layers');
+            
+            // Look for parcel-related layers
+            const parcelLayers = layerIds.filter(id => 
+                id.toLowerCase().includes('parcel') || 
+                id.toLowerCase().includes('boundary') || 
+                id.toLowerCase().includes('forest') ||
+                id.toLowerCase().includes('limite')
+            );
+            console.log('Found parcel-related layers:', parcelLayers);
+            
+            if (parcelsVisible && parcelLayers.length === 0) {
+                console.warn('Parcels should be visible but no parcel layers found in style');
+            } else if (parcelsVisible && parcelLayers.length > 0) {
+                console.log('✅ Parcels are loaded and should be visible');
+            }
+            
             const position = LocationTracker.getCurrentPosition();
             if (position) {
                 console.log('Re-adding user location');
@@ -338,6 +364,29 @@ const MapManager = (function() {
         map.resize();
     }
     
+    // Debug function to check current layers
+    function debugLayers() {
+        const style = map.getStyle();
+        const layers = style.layers;
+        console.log('=== CURRENT MAP LAYERS ===');
+        console.log('Total layers:', layers.length);
+        
+        layers.forEach((layer, i) => {
+            const visibility = map.getLayoutProperty(layer.id, 'visibility') || 'visible';
+            console.log(`${i}: ${layer.id} (${layer.type}) - ${visibility}`);
+        });
+        
+        const parcelLayers = layers.filter(l => 
+            l.id.toLowerCase().includes('parcel') || 
+            l.id.toLowerCase().includes('boundary') || 
+            l.id.toLowerCase().includes('forest') ||
+            l.id.toLowerCase().includes('limite')
+        );
+        console.log('Parcel layers:', parcelLayers.map(l => l.id));
+        
+        return layers;
+    }
+    
     return {
         init,
         updateUserLocation,
@@ -350,6 +399,7 @@ const MapManager = (function() {
         getCenter,
         getZoom,
         resize,
-        toggleParcels
+        toggleParcels,
+        debugLayers
     };
 })();
