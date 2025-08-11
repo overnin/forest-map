@@ -539,13 +539,41 @@ const MapManager = (function() {
     
     // Toggle fullscreen
     function toggleFullscreen() {
-        if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen().catch(err => {
-                debugLog('Error attempting to enable fullscreen:', err);
-            });
+        // Check current fullscreen state across all browser APIs
+        const isCurrentlyFullscreen = !!(document.fullscreenElement || 
+                                        document.webkitFullscreenElement || 
+                                        document.mozFullScreenElement || 
+                                        document.msFullscreenElement);
+        
+        debugLog('toggleFullscreen called, currently fullscreen:', isCurrentlyFullscreen);
+        
+        if (!isCurrentlyFullscreen) {
+            // Request fullscreen with browser-specific APIs
+            const docEl = document.documentElement;
+            
+            if (docEl.requestFullscreen) {
+                docEl.requestFullscreen().catch(err => {
+                    debugLog('Error with requestFullscreen:', err);
+                });
+            } else if (docEl.webkitRequestFullscreen) {
+                docEl.webkitRequestFullscreen();
+            } else if (docEl.mozRequestFullScreen) {
+                docEl.mozRequestFullScreen();
+            } else if (docEl.msRequestFullscreen) {
+                docEl.msRequestFullscreen();
+            } else {
+                debugLog('No fullscreen API available');
+            }
         } else {
+            // Exit fullscreen with browser-specific APIs
             if (document.exitFullscreen) {
                 document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+            } else if (document.mozCancelFullScreen) {
+                document.mozCancelFullScreen();
+            } else if (document.msExitFullscreen) {
+                document.msExitFullscreen();
             }
         }
     }

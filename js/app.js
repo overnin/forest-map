@@ -4,7 +4,7 @@ const ForestMapApp = (function() {
     let trackingEnabled = false;
     
     // Production flag to control debug logging
-    const DEBUG_MODE = false;
+    const DEBUG_MODE = true; // Temporarily enabled for mobile debugging
     
     function debugLog(...args) {
         if (DEBUG_MODE) {
@@ -230,18 +230,36 @@ const ForestMapApp = (function() {
     
     // Handle fullscreen button click
     function handleFullscreenClick() {
+        const fullscreenBtn = document.getElementById('fullscreen-btn');
+        const wasActive = fullscreenBtn.classList.contains('active');
+        
+        debugLog('=== FULLSCREEN BUTTON CLICKED ===');
+        debugLog('Button was active before click:', wasActive);
+        debugLog('Is mobile device:', isMobileDevice());
+        
+        // Toggle the button state immediately (optimistic update)
+        if (wasActive) {
+            fullscreenBtn.classList.remove('active');
+            debugLog('Immediately removed active class (optimistic)');
+        } else {
+            fullscreenBtn.classList.add('active');
+            debugLog('Immediately added active class (optimistic)');
+        }
+        
+        // Then call the fullscreen API
         MapManager.toggleFullscreen();
         
-        // For mobile devices, add a fallback check since events may not fire reliably
+        // On mobile, add verification checks
         if (isMobileDevice()) {
             setTimeout(() => {
+                debugLog('=== 200ms VERIFICATION ===');
                 updateFullscreenButtonState();
-            }, 100);
+            }, 200);
             
-            // Additional check after a longer delay
             setTimeout(() => {
+                debugLog('=== 1000ms VERIFICATION ===');
                 updateFullscreenButtonState();
-            }, 500);
+            }, 1000);
         }
     }
     
