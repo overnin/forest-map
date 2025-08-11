@@ -200,7 +200,11 @@ const ForestMapApp = (function() {
     function handleLayerChange(e) {
         const selectedStyle = e.target.value;
         MapManager.changeStyle(selectedStyle);
-        savePreference('mapStyle', selectedStyle);
+        
+        // Save the base style preference (not custom if parcels are on)
+        if (selectedStyle !== 'custom') {
+            savePreference('mapStyle', selectedStyle);
+        }
         
         // Hide layer selector after selection
         setTimeout(() => {
@@ -265,19 +269,26 @@ const ForestMapApp = (function() {
     // Load user preferences
     function loadPreferences() {
         try {
+            // Load parcel visibility preference
+            const savedParcels = localStorage.getItem('forestMap_parcelsVisible');
+            if (savedParcels !== null) {
+                const parcelsVisible = savedParcels === 'true';
+                const parcelsBtn = document.getElementById('parcels-btn');
+                if (parcelsBtn) {
+                    if (parcelsVisible) {
+                        parcelsBtn.classList.add('active');
+                    } else {
+                        parcelsBtn.classList.remove('active');
+                    }
+                }
+            }
+            
             // Load map style preference
             const savedStyle = localStorage.getItem('forestMap_mapStyle');
             if (savedStyle) {
                 const radioBtn = document.querySelector(`input[name="map-style"][value="${savedStyle}"]`);
                 if (radioBtn) {
                     radioBtn.checked = true;
-                    // Map style will be applied after map loads
-                    const map = MapManager.getMap();
-                    if (map) {
-                        map.once('load', () => {
-                            MapManager.changeStyle(savedStyle);
-                        });
-                    }
                 }
             }
         } catch (e) {

@@ -173,20 +173,28 @@ const MapManager = (function() {
     function changeStyle(styleName) {
         if (!mapStyles[styleName]) return;
         
-        currentBaseStyle = styleName;
-        
-        // Determine which style to actually use
-        let styleToUse;
-        if (parcelsVisible && styleName !== 'custom') {
-            // If parcels should be visible and user selected a base style,
-            // use the custom style (which includes parcels)
-            styleToUse = mapStyles.custom;
+        // If selecting custom style, always show it regardless of parcel toggle
+        if (styleName === 'custom') {
+            currentBaseStyle = styleName;
+            parcelsVisible = true;
+            map.setStyle(mapStyles.custom);
+            
+            // Update parcels button to active
+            const parcelsBtn = document.getElementById('parcels-btn');
+            if (parcelsBtn) {
+                parcelsBtn.classList.add('active');
+            }
         } else {
-            // Otherwise use the selected style
-            styleToUse = mapStyles[styleName];
+            // For other styles, store as base style
+            currentBaseStyle = styleName;
+            
+            // If parcels should be visible, use custom style instead
+            if (parcelsVisible) {
+                map.setStyle(mapStyles.custom);
+            } else {
+                map.setStyle(mapStyles[styleName]);
+            }
         }
-        
-        map.setStyle(styleToUse);
         
         // Re-add user marker after style change
         map.once('style.load', () => {
@@ -201,16 +209,23 @@ const MapManager = (function() {
     function toggleParcels() {
         parcelsVisible = !parcelsVisible;
         
+        console.log('Toggling parcels:', parcelsVisible ? 'ON' : 'OFF');
+        console.log('Current base style:', currentBaseStyle);
+        
         if (parcelsVisible) {
-            // Switch to custom style to show parcels
+            // Always use custom style when parcels are visible
+            console.log('Switching to custom style for parcels');
             map.setStyle(mapStyles.custom);
         } else {
-            // Switch to the current base style without parcels
-            map.setStyle(mapStyles[currentBaseStyle]);
+            // Use the selected base style (or satellite if custom was selected)
+            const styleToUse = currentBaseStyle === 'custom' ? 'satellite' : currentBaseStyle;
+            console.log('Switching to base style:', styleToUse);
+            map.setStyle(mapStyles[styleToUse]);
         }
         
         // Re-add user marker after style change
         map.once('style.load', () => {
+            console.log('Style loaded, re-adding user location');
             const position = LocationTracker.getCurrentPosition();
             if (position) {
                 updateUserLocation(position.lat, position.lng, position.accuracy);
