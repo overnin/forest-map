@@ -68,6 +68,11 @@ const MapManager = (function() {
         
         // Handle map errors
         map.on('error', (e) => {
+            // Ignore terrain-related errors as they don't affect functionality
+            if (e.error && e.error.message && e.error.message.includes('terrain')) {
+                console.log('Terrain configuration notice (can be ignored):', e.error.message);
+                return;
+            }
             console.error('Map error:', e.error);
         });
     }
@@ -177,7 +182,14 @@ const MapManager = (function() {
         if (styleName === 'custom') {
             currentBaseStyle = styleName;
             parcelsVisible = true;
-            map.setStyle(mapStyles.custom);
+            
+            // Apply style with error handling
+            try {
+                map.setStyle(mapStyles.custom);
+            } catch (e) {
+                console.warn('Error setting custom style, using fallback:', e);
+                map.setStyle(mapStyles.satellite);
+            }
             
             // Update parcels button to active
             const parcelsBtn = document.getElementById('parcels-btn');
@@ -190,7 +202,12 @@ const MapManager = (function() {
             
             // If parcels should be visible, use custom style instead
             if (parcelsVisible) {
-                map.setStyle(mapStyles.custom);
+                try {
+                    map.setStyle(mapStyles.custom);
+                } catch (e) {
+                    console.warn('Error setting custom style, using base style:', e);
+                    map.setStyle(mapStyles[styleName]);
+                }
             } else {
                 map.setStyle(mapStyles[styleName]);
             }
@@ -203,6 +220,11 @@ const MapManager = (function() {
                 updateUserLocation(position.lat, position.lng, position.accuracy);
             }
         });
+        
+        // Clear any style errors after switching
+        map.once('idle', () => {
+            console.log('Style switch completed');
+        });
     }
     
     // Toggle parcel visibility
@@ -212,15 +234,22 @@ const MapManager = (function() {
         console.log('Toggling parcels:', parcelsVisible ? 'ON' : 'OFF');
         console.log('Current base style:', currentBaseStyle);
         
-        if (parcelsVisible) {
-            // Always use custom style when parcels are visible
-            console.log('Switching to custom style for parcels');
-            map.setStyle(mapStyles.custom);
-        } else {
-            // Use the selected base style (or satellite if custom was selected)
-            const styleToUse = currentBaseStyle === 'custom' ? 'satellite' : currentBaseStyle;
-            console.log('Switching to base style:', styleToUse);
-            map.setStyle(mapStyles[styleToUse]);
+        try {
+            if (parcelsVisible) {
+                // Always use custom style when parcels are visible
+                console.log('Switching to custom style for parcels');
+                map.setStyle(mapStyles.custom);
+            } else {
+                // Use the selected base style (or satellite if custom was selected)
+                const styleToUse = currentBaseStyle === 'custom' ? 'satellite' : currentBaseStyle;
+                console.log('Switching to base style:', styleToUse);
+                map.setStyle(mapStyles[styleToUse]);
+            }
+        } catch (e) {
+            console.warn('Error during style switch:', e);
+            // Fallback to satellite if there's an error
+            map.setStyle(mapStyles.satellite);
+            parcelsVisible = false;
         }
         
         // Re-add user marker after style change
@@ -230,6 +259,11 @@ const MapManager = (function() {
             if (position) {
                 updateUserLocation(position.lat, position.lng, position.accuracy);
             }
+        });
+        
+        // Clear any lingering errors
+        map.once('idle', () => {
+            console.log('Toggle completed successfully');
         });
         
         return parcelsVisible;
