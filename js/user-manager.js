@@ -15,12 +15,26 @@ const UserManager = (function() {
         return `forestMap_userName_${getTodayKey()}`;
     }
     
+    // Track active user name prompt to prevent duplicates
+    let activePromptPromise = null;
+    
     // Public API
     return {
         // Get current user name (prompt if first time today)
         getCurrentUserName: function() {
             if (!this.hasUserNameForToday()) {
-                return this.promptForUserName();
+                // If there's already an active prompt, return the same promise
+                if (activePromptPromise) {
+                    console.log('[USER] User name prompt already active, returning existing promise');
+                    return activePromptPromise;
+                }
+                
+                console.log('[USER] No user name for today, showing prompt');
+                activePromptPromise = this.promptForUserName().finally(() => {
+                    // Clear the active promise when done
+                    activePromptPromise = null;
+                });
+                return activePromptPromise;
             }
             return this.getStoredUserName();
         },

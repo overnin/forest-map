@@ -525,8 +525,20 @@ const ForestMapApp = (function() {
         // Flag to prevent immediate popup closure on mobile
         let isTypeSelecting = false;
         
+        // Flag to prevent both click and touch events from firing
+        let actionExecuted = false;
+        
         // Main mark button - simple click behavior
         markBtn.addEventListener('click', function(e) {
+            console.log('[APP] Mark button click event triggered');
+            
+            // Prevent duplicate execution if touchend already handled this
+            if (actionExecuted) {
+                console.log('[APP] Action already executed by touch handler, ignoring click');
+                actionExecuted = false; // Reset for next interaction
+                return;
+            }
+            
             if (e.shiftKey || !PointManager.hasSelectedType()) {
                 // Show type selector
                 isTypeSelecting = true;
@@ -572,19 +584,25 @@ const ForestMapApp = (function() {
             
             // If it was a short press (under 400ms), trigger the normal action
             if (touchDuration < 400) {
+                console.log('[APP] Touch end event - executing action');
+                actionExecuted = true; // Prevent click handler from also executing
+                
                 // Prevent click handler from closing type selector immediately
                 if (!PointManager.hasSelectedType()) {
                     isTypeSelecting = true;
                 }
                 
-                // Simulate click behavior for mobile
+                // Execute action immediately (no setTimeout delay to reduce chance of conflicts)
+                if (!PointManager.hasSelectedType()) {
+                    toggleTypeSelector();
+                } else {
+                    markPointAtCurrentLocation();
+                }
+                
+                // Reset actionExecuted flag after a short delay
                 setTimeout(() => {
-                    if (!PointManager.hasSelectedType()) {
-                        toggleTypeSelector();
-                    } else {
-                        markPointAtCurrentLocation();
-                    }
-                }, 10);
+                    actionExecuted = false;
+                }, 100);
             }
         });
         
@@ -597,16 +615,22 @@ const ForestMapApp = (function() {
         // Type selection buttons
         document.querySelectorAll('.type-btn').forEach(btn => {
             btn.addEventListener('click', function() {
+                console.log('[APP] Type button clicked:', this.dataset.type);
+                
                 const type = this.dataset.type;
                 PointManager.setCurrentType(type);
                 updateTypeIndicator(type);
                 updateTypeButtonStates(type);
                 hideTypeSelector();
                 
-                // Add small delay on mobile to ensure type selector is fully hidden before showing user dialog
+                // Add small delay on mobile to ensure type selector is fully hidden before creating point
                 if (isMobileDevice()) {
-                    setTimeout(() => markPointAtCurrentLocation(), 100);
+                    setTimeout(() => {
+                        console.log('[APP] Creating point after mobile type selection');
+                        markPointAtCurrentLocation();
+                    }, 100);
                 } else {
+                    console.log('[APP] Creating point after desktop type selection');
                     markPointAtCurrentLocation();
                 }
             });
@@ -824,8 +848,28 @@ const ForestMapApp = (function() {
         });
     }
     
+    // Point creation state tracking for debounce
+    let isCreatingPoint = false;
+    let lastPointCreationTime = 0;
+    const POINT_CREATION_COOLDOWN = 1000; // 1 second cooldown
+    
     // Mark point at current location
     function markPointAtCurrentLocation() {
+        console.log('[APP] markPointAtCurrentLocation called');
+        
+        // Check cooldown timer
+        const now = Date.now();
+        if (now - lastPointCreationTime < POINT_CREATION_COOLDOWN) {
+            console.log(`[APP] ⏱️ Point creation on cooldown (${POINT_CREATION_COOLDOWN - (now - lastPointCreationTime)}ms remaining), ignoring request`);
+            return;
+        }
+        
+        // Check if already creating point
+        if (isCreatingPoint) {
+            console.log('[APP] ⚠️ Point creation in progress, ignoring duplicate request');
+            return;
+        }
+        
         if (!PointManager.isGPSAvailable()) {
             showNotification(i18n.t('gpsRequired'), 'error');
             return;
@@ -837,6 +881,14 @@ const ForestMapApp = (function() {
             return;
         }
         
+        // Set creation state and update timestamp
+        isCreatingPoint = true;
+        lastPointCreationTime = now;
+        console.log('[APP] 🔄 Starting point creation process');
+        
+        // Update button state to show creation in progress
+        updateMarkButtonState('creating');
+        
         const result = PointManager.markPoint(type);
         
         // Handle both synchronous and asynchronous results
@@ -844,10 +896,70 @@ const ForestMapApp = (function() {
             result.then(point => {
                 if (point) {
                     handlePointCreated(point, type);
+                    updateMarkButtonState('success');
+                } else {
+                    updateMarkButtonState('error');
                 }
+                // Reset creation state
+                isCreatingPoint = false;
+                console.log('[APP] ✅ Point creation process completed (async)');
+            }).catch(error => {
+                console.error('[APP] ❌ Point creation failed:', error);
+                updateMarkButtonState('error');
+                isCreatingPoint = false;
             });
         } else if (result) {
             handlePointCreated(result, type);
+            updateMarkButtonState('success');
+            isCreatingPoint = false;
+            console.log('[APP] ✅ Point creation process completed (sync)');
+        } else {
+            updateMarkButtonState('error');
+            isCreatingPoint = false;
+            console.log('[APP] ❌ Point creation failed (sync)');
+        }
+    }
+    
+    // Update mark button visual state
+    function updateMarkButtonState(state) {
+        const markBtn = document.getElementById('mark-btn');
+        if (!markBtn) return;
+        
+        // Reset classes
+        markBtn.classList.remove('creating', 'success', 'error');
+        markBtn.disabled = false;
+        
+        switch (state) {
+            case 'creating':
+                markBtn.classList.add('creating');
+                markBtn.disabled = true;
+                markBtn.style.opacity = '0.7';
+                console.log('[APP] 🔄 Mark button set to creating state');
+                break;
+                
+            case 'success':
+                markBtn.classList.add('success');
+                markBtn.style.opacity = '1';
+                // Brief success indication
+                setTimeout(() => {
+                    markBtn.classList.remove('success');
+                }, 1500);
+                console.log('[APP] ✅ Mark button set to success state');
+                break;
+                
+            case 'error':
+                markBtn.classList.add('error');
+                markBtn.style.opacity = '1';
+                // Brief error indication
+                setTimeout(() => {
+                    markBtn.classList.remove('error');
+                }, 2000);
+                console.log('[APP] ❌ Mark button set to error state');
+                break;
+                
+            default:
+                markBtn.style.opacity = '1';
+                console.log('[APP] 🔄 Mark button reset to default state');
         }
     }
     
