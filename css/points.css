@@ -98,6 +98,30 @@
 .type-icon {
     font-size: 18px;
     margin-right: 10px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+}
+
+/* Type icon colors for each point type */
+.type-btn[data-type="exploitation"] .type-icon {
+    background-color: #FF6B35;
+    border: 2px solid #E55100;
+}
+
+.type-btn[data-type="clearing"] .type-icon {
+    background-color: #DC143C;
+    border: 2px solid #8B0000;
+}
+
+.type-btn[data-type="boundary"] .type-icon {
+    background-color: #4169E1;
+    border: 2px solid #1E3A8A;
 }
 
 .type-label {
