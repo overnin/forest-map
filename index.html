@@ -14,6 +14,7 @@
     
     <!-- App Styles -->
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/points.css">
     <link rel="manifest" href="manifest.json">
 </head>
 <body>
@@ -48,6 +49,14 @@
                 <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
             </svg>
         </button>
+        <!-- Mark Point Button -->
+        <button id="mark-btn" class="control-btn" data-i18n-title="markPoint">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M12 2l7 7-7 7-7-7z"></path>
+            </svg>
+            <span class="type-indicator"></span>
+        </button>
     </div>
     
     <!-- Status Bar -->
@@ -63,6 +72,14 @@
         <div class="status-item">
             <span class="status-label">Coordinates:</span>
             <span id="coords-status" class="status-value">--, --</span>
+        </div>
+        <div class="status-item">
+            <span class="status-label" data-i18n="points">Points:</span>
+            <span id="points-summary" class="status-value">
+                <span class="type-stat exploitation">E:0</span>
+                <span class="type-stat clearing">C:0</span>
+                <span class="type-stat boundary">B:0</span>
+            </span>
         </div>
     </div>
     
@@ -92,6 +109,62 @@
         </label>
     </div>
     
+    <!-- Type Selector Panel (Hidden by default) -->
+    <div id="type-selector" class="type-selector-panel hidden">
+        <div class="type-selector-header" data-i18n="selectPointType">Select Point Type:</div>
+        <div class="type-buttons">
+            <button class="type-btn" data-type="exploitation">
+                <span class="type-icon">💰</span>
+                <span class="type-label" data-i18n="exploitation">Exploitation</span>
+                <span class="type-count">0</span>
+            </button>
+            <button class="type-btn" data-type="clearing">
+                <span class="type-icon">🚫</span>
+                <span class="type-label" data-i18n="clearing">Clearing</span>
+                <span class="type-count">0</span>
+            </button>
+            <button class="type-btn" data-type="boundary">
+                <span class="type-icon">📍</span>
+                <span class="type-label" data-i18n="boundary">Boundary</span>
+                <span class="type-count">0</span>
+            </button>
+        </div>
+    </div>
+    
+    <!-- Filter Panel -->
+    <div id="filter-panel" class="filter-panel">
+        <div class="filter-header">
+            <h3 data-i18n="pointFilters">Point Filters</h3>
+            <button class="filter-toggle-btn">▼</button>
+        </div>
+        <div class="filter-content">
+            <div class="filter-item">
+                <input type="checkbox" id="show-exploitation" checked>
+                <label for="show-exploitation">
+                    <span class="marker-dot exploitation"></span>
+                    <span data-i18n="exploitation">Exploitation</span>
+                    <span class="filter-count" id="count-exploitation">0</span>
+                </label>
+            </div>
+            <div class="filter-item">
+                <input type="checkbox" id="show-clearing" checked>
+                <label for="show-clearing">
+                    <span class="marker-dot clearing"></span>
+                    <span data-i18n="clearing">Clearing</span>
+                    <span class="filter-count" id="count-clearing">0</span>
+                </label>
+            </div>
+            <div class="filter-item">
+                <input type="checkbox" id="show-boundary" checked>
+                <label for="show-boundary">
+                    <span class="marker-dot boundary"></span>
+                    <span data-i18n="boundary">Boundary</span>
+                    <span class="filter-count" id="count-boundary">0</span>
+                </label>
+            </div>
+        </div>
+    </div>
+    
     <!-- Permission Request Modal -->
     <div id="permission-modal" class="modal hidden">
         <div class="modal-content">
@@ -107,6 +180,9 @@
     </div>
     
     <!-- Scripts -->
+    <script src="js/i18n.js"></script>
+    <script src="js/points.js"></script>
+    <script src="js/export.js"></script>
     <script src="js/map.js"></script>
     <script src="js/location.js"></script>
     <script src="js/app.js"></script>

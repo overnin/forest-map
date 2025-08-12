@@ -3,6 +3,7 @@ const MapManager = (function() {
     let map = null;
     let userMarker = null;
     let accuracyCircle = null;
+    let pointMarkers = []; // Array to store all point markers
     const MAPBOX_TOKEN = 'pk.eyJ1Ijoib2xpdmllcnZlcm5pbiIsImEiOiJjaWtzNjk5MXcwYXh6dW1tMWlubTlyc2JyIn0.aub3AlNziJHJh8TvhhOUJw';
     
     // Map style URLs
@@ -64,6 +65,11 @@ const MapManager = (function() {
         map.on('load', () => {
             debugLog('Map loaded successfully');
             setupMapEvents();
+            
+            // Load existing points after map is ready
+            setTimeout(() => {
+                loadAllPoints();
+            }, 1000); // Small delay to ensure all modules are initialized
         });
         
         return map;
@@ -620,6 +626,123 @@ const MapManager = (function() {
         return layers;
     }
     
+    // Point marker management functions
+    function addPointMarker(point) {
+        if (!point || !map) return null;
+        
+        // Create marker element
+        const el = document.createElement('div');
+        el.className = `point-marker marker-${point.type}`;
+        
+        // Get point type configuration
+        const pointTypes = PointManager.getPointTypes();
+        const typeConfig = pointTypes[point.type];
+        
+        el.innerHTML = `
+            <div class="marker-icon">${typeConfig.icon}</div>
+            <div class="marker-number">${point.number}</div>
+        `;
+        
+        // Create marker
+        const marker = new mapboxgl.Marker(el)
+            .setLngLat([point.lng, point.lat])
+            .addTo(map);
+        
+        // Add popup
+        const popupContent = PointManager.createPopupContent(point);
+        const popup = new mapboxgl.Popup({
+            closeButton: true,
+            closeOnClick: false,
+            maxWidth: '300px',
+            offset: [0, -40]
+        }).setHTML(popupContent);
+        
+        marker.setPopup(popup);
+        
+        // Store reference
+        marker.pointId = point.id;
+        marker.pointType = point.type;
+        pointMarkers.push(marker);
+        
+        // Register with PointManager
+        PointManager.addMarker(point.type, marker);
+        
+        // Add animation
+        el.classList.add('new');
+        setTimeout(() => {
+            el.classList.remove('new');
+        }, 500);
+        
+        return marker;
+    }
+    
+    // Load all existing points on map
+    function loadAllPoints() {
+        if (!PointManager) return;
+        
+        ['exploitation', 'clearing', 'boundary'].forEach(type => {
+            const points = PointManager.getPointsByType(type);
+            points.forEach(point => {
+                addPointMarker(point);
+            });
+        });
+        
+        updatePointVisibility();
+    }
+    
+    // Update point marker visibility based on settings
+    function updatePointVisibility() {
+        if (!PointManager) return;
+        
+        const visibility = PointManager.getVisibilitySettings();
+        
+        pointMarkers.forEach(marker => {
+            if (marker.pointType) {
+                const element = marker.getElement();
+                const shouldShow = visibility[marker.pointType];
+                element.style.display = shouldShow ? 'block' : 'none';
+            }
+        });
+    }
+    
+    // Remove point marker by ID
+    function removePointMarker(pointId) {
+        const markerIndex = pointMarkers.findIndex(m => m.pointId === pointId);
+        if (markerIndex !== -1) {
+            pointMarkers[markerIndex].remove();
+            pointMarkers.splice(markerIndex, 1);
+            return true;
+        }
+        return false;
+    }
+    
+    // Clear all point markers of a specific type
+    function clearPointMarkers(type) {
+        pointMarkers = pointMarkers.filter(marker => {
+            if (!type || marker.pointType === type) {
+                marker.remove();
+                return false;
+            }
+            return true;
+        });
+    }
+    
+    // Get all point markers
+    function getPointMarkers() {
+        return pointMarkers;
+    }
+    
+    // Center map on a specific point
+    function centerOnPoint(point) {
+        if (point && map) {
+            map.flyTo({
+                center: [point.lng, point.lat],
+                zoom: Math.max(map.getZoom(), 16),
+                duration: 1000
+            });
+        }
+    }
+    
     return {
         init,
         updateUserLocation,
@@ -633,6 +756,14 @@ const MapManager = (function() {
         getZoom,
         resize,
         toggleParcels,
-        debugLayers
+        debugLayers,
+        // Point marker functions
+        addPointMarker,
+        loadAllPoints,
+        updatePointVisibility,
+        removePointMarker,
+        clearPointMarkers,
+        getPointMarkers,
+        centerOnPoint
     };
 })();

@@ -18,8 +18,14 @@ const ForestMapApp = (function() {
         
         debugLog('Initializing Forest Map Application...');
         
+        // Initialize internationalization
+        i18n.init();
+        
         // Initialize map
         MapManager.init();
+        
+        // Initialize point management
+        PointManager.init();
         
         // Setup event listeners
         setupEventListeners();
@@ -65,6 +71,9 @@ const ForestMapApp = (function() {
         if (permissionBtn) {
             permissionBtn.addEventListener('click', handlePermissionRequest);
         }
+        
+        // Point marking functionality
+        initializePointMarkingEvents();
         
         // Debug button handled inline in HTML
         
@@ -421,6 +430,208 @@ const ForestMapApp = (function() {
                         debugLog('Service Worker registration failed:', error);
                     });
             });
+        }
+    }
+    
+    // Point marking functionality
+    function initializePointMarkingEvents() {
+        const markBtn = document.getElementById('mark-btn');
+        const typeSelector = document.getElementById('type-selector');
+        const filterPanel = document.getElementById('filter-panel');
+        
+        if (!markBtn) return;
+        
+        // Main mark button - toggle type selector or mark point
+        markBtn.addEventListener('click', function(e) {
+            if (e.shiftKey || !PointManager.hasSelectedType()) {
+                // Show type selector
+                toggleTypeSelector();
+            } else {
+                // Mark point with current type
+                markPointAtCurrentLocation();
+            }
+        });
+        
+        // Long press for type selector
+        let pressTimer;
+        markBtn.addEventListener('touchstart', function(e) {
+            e.preventDefault();
+            pressTimer = setTimeout(() => {
+                toggleTypeSelector();
+            }, 500);
+        }, { passive: false });
+        
+        markBtn.addEventListener('touchend', function() {
+            clearTimeout(pressTimer);
+        });
+        
+        // Type selection buttons
+        document.querySelectorAll('.type-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const type = this.dataset.type;
+                PointManager.setCurrentType(type);
+                updateTypeIndicator(type);
+                updateTypeButtonStates(type);
+                hideTypeSelector();
+                markPointAtCurrentLocation();
+            });
+        });
+        
+        // Filter checkboxes
+        ['exploitation', 'clearing', 'boundary'].forEach(type => {
+            const checkbox = document.getElementById(`show-${type}`);
+            if (checkbox) {
+                checkbox.addEventListener('change', function() {
+                    PointManager.toggleTypeVisibility(type);
+                    updateMarkerVisibility();
+                });
+            }
+        });
+        
+        // Filter panel toggle
+        const filterToggleBtn = document.querySelector('.filter-toggle-btn');
+        if (filterToggleBtn) {
+            filterToggleBtn.addEventListener('click', function() {
+                filterPanel.classList.toggle('collapsed');
+            });
+        }
+        
+        // Close panels when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!typeSelector.contains(e.target) && !markBtn.contains(e.target)) {
+                hideTypeSelector();
+            }
+        });
+        
+        // Export functionality - long press on status
+        const pointsSummary = document.getElementById('points-summary');
+        if (pointsSummary) {
+            let exportPressTimer;
+            pointsSummary.addEventListener('touchstart', function() {
+                exportPressTimer = setTimeout(() => {
+                    ExportManager.showExportDialog();
+                }, 1000);
+            });
+            pointsSummary.addEventListener('touchend', function() {
+                clearTimeout(exportPressTimer);
+            });
+        }
+    }
+    
+    // Toggle type selector visibility
+    function toggleTypeSelector() {
+        const typeSelector = document.getElementById('type-selector');
+        if (typeSelector) {
+            typeSelector.classList.toggle('hidden');
+        }
+    }
+    
+    // Hide type selector
+    function hideTypeSelector() {
+        const typeSelector = document.getElementById('type-selector');
+        if (typeSelector) {
+            typeSelector.classList.add('hidden');
+        }
+    }
+    
+    // Update type indicator on mark button
+    function updateTypeIndicator(type) {
+        const indicator = document.querySelector('.type-indicator');
+        if (indicator && type) {
+            const pointTypes = PointManager.getPointTypes();
+            indicator.textContent = pointTypes[type].icon;
+            indicator.style.display = 'inline-block';
+            indicator.style.backgroundColor = pointTypes[type].color;
+        }
+    }
+    
+    // Update type button active states
+    function updateTypeButtonStates(activeType) {
+        document.querySelectorAll('.type-btn').forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.dataset.type === activeType) {
+                btn.classList.add('active');
+            }
+        });
+    }
+    
+    // Mark point at current location
+    function markPointAtCurrentLocation() {
+        if (!PointManager.isGPSAvailable()) {
+            showNotification(i18n.t('gpsRequired'), 'error');
+            return;
+        }
+        
+        const type = PointManager.getCurrentType();
+        if (!type) {
+            toggleTypeSelector();
+            return;
+        }
+        
+        const point = PointManager.markPoint(type);
+        if (point) {
+            // Add point to map
+            addPointToMap(point);
+            
+            // Update UI
+            PointManager.updateUI();
+            
+            // Show success notification
+            const pointTypes = PointManager.getPointTypes();
+            const message = i18n.t('pointMarked', {
+                type: pointTypes[type].getLabel(),
+                number: point.number
+            });
+            showNotification(message, 'success');
+        }
+    }
+    
+    // Add point to map
+    function addPointToMap(point) {
+        if (typeof MapManager !== 'undefined' && MapManager.addPointMarker) {
+            MapManager.addPointMarker(point);
+        }
+    }
+    
+    // Update marker visibility on map
+    function updateMarkerVisibility() {
+        if (typeof MapManager !== 'undefined' && MapManager.updatePointVisibility) {
+            MapManager.updatePointVisibility();
+        }
+    }
+    
+    // Show notification
+    function showNotification(message, type = 'info') {
+        // Use existing LocationTracker status system if available
+        if (typeof LocationTracker !== 'undefined' && LocationTracker.updateStatus) {
+            LocationTracker.updateStatus(message, type);
+        } else {
+            // Fallback notification
+            console.log(`[${type.toUpperCase()}] ${message}`);
+            
+            // Create temporary visual notification
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: ${type === 'error' ? '#f44336' : type === 'success' ? '#4CAF50' : '#2196F3'};
+                color: white;
+                padding: 10px 20px;
+                border-radius: 4px;
+                z-index: 3000;
+                font-size: 14px;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            `;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 3000);
         }
     }
     
