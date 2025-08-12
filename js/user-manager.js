@@ -65,6 +65,7 @@ const UserManager = (function() {
         
         // Show user name input dialog
         showUserNameDialog: function() {
+            const self = this; // Store reference to UserManager context
             return new Promise((resolve) => {
                 const dialog = document.createElement('div');
                 dialog.className = 'user-name-dialog-overlay';
@@ -157,17 +158,29 @@ const UserManager = (function() {
                 });
                 
                 const handleConfirm = () => {
-                    const name = input.value.trim();
-                    if (name.length > 0 && name.length <= 50) {
-                        this.storeUserName(name);
+                    try {
+                        const name = input.value.trim();
+                        if (name.length > 0 && name.length <= 50) {
+                            self.storeUserName(name); // Use stored reference to UserManager
+                            document.body.removeChild(dialog);
+                            resolve(name);
+                        }
+                    } catch (error) {
+                        console.error('Error in handleConfirm:', error);
+                        // Still resolve to prevent hanging
                         document.body.removeChild(dialog);
-                        resolve(name);
+                        resolve(null);
                     }
                 };
                 
                 const handleCancel = () => {
-                    document.body.removeChild(dialog);
-                    resolve(null);
+                    try {
+                        document.body.removeChild(dialog);
+                        resolve(null);
+                    } catch (error) {
+                        console.error('Error in handleCancel:', error);
+                        resolve(null);
+                    }
                 };
                 
                 confirmBtn.addEventListener('click', handleConfirm);
