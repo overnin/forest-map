@@ -19,16 +19,71 @@ const MapManager = (function() {
     let currentBaseStyle = 'satellite';
     let parcelsVisible = true;
     
-    // Production flag to control debug logging
-    const DEBUG_MODE = false;
+    // Production flag to control debug logging - ENABLED for parcel debugging
+    const DEBUG_MODE = true;
     
     function debugLog(...args) {
         if (DEBUG_MODE) {
-            console.log(...args);
+            console.log('[MAP]', ...args);
         }
     }
     
     debugLog('Map module initialized - parcelsVisible:', parcelsVisible);
+    
+    // Enhanced logging function for parcel debugging
+    function debugParcelState(context) {
+        debugLog(`=== PARCEL STATE DEBUG (${context}) ===`);
+        debugLog('parcelsVisible variable:', parcelsVisible);
+        debugLog('currentBaseStyle:', currentBaseStyle);
+        debugLog('isLoadingParcels:', isLoadingParcels);
+        debugLog('parcelSourceAdded:', parcelSourceAdded);
+        debugLog('cachedStyleData exists:', !!cachedStyleData);
+        
+        if (map && map.isStyleLoaded()) {
+            const style = map.getStyle();
+            debugLog('Current map style name:', style.name);
+            debugLog('Map style loaded:', map.isStyleLoaded());
+            
+            // List all layers
+            const layers = style.layers;
+            debugLog('Total layers:', layers.length);
+            
+            // Find parcel-related layers
+            const parcelLayers = layers.filter(layer => 
+                layer.source === 'forest-parcels' ||
+                layer.id.toLowerCase().includes('forest') ||
+                layer.id.toLowerCase().includes('parcel') ||
+                layer.id.toLowerCase().includes('boundary') ||
+                layer.id.toLowerCase().includes('limite')
+            );
+            
+            debugLog('Parcel layers found:', parcelLayers.length);
+            parcelLayers.forEach(layer => {
+                const visibility = map.getLayoutProperty(layer.id, 'visibility') || 'visible';
+                debugLog(`  - ${layer.id} (${layer.type}, source: ${layer.source}): ${visibility}`);
+            });
+            
+            // Check sources
+            const sources = Object.keys(style.sources);
+            const parcelSources = sources.filter(s => 
+                s.includes('forest') || s.includes('parcel') || s.includes('demo')
+            );
+            debugLog('Parcel sources:', parcelSources);
+        } else {
+            debugLog('Map not loaded or style not ready');
+        }
+        
+        // Check button state
+        const parcelsBtn = document.getElementById('parcels-btn');
+        if (parcelsBtn) {
+            debugLog('Button classes:', parcelsBtn.classList.toString());
+            debugLog('Button has active:', parcelsBtn.classList.contains('active'));
+        } else {
+            debugLog('Parcels button not found');
+        }
+        
+        debugLog('=== END PARCEL STATE DEBUG ===');
+    }
     
     // Initialize map
     function init() {
@@ -64,10 +119,14 @@ const MapManager = (function() {
         // Map loaded event
         map.on('load', () => {
             debugLog('Map loaded successfully');
+            debugParcelState('MAP_LOADED');
             setupMapEvents();
             
             // Initialize point layers
             initializePointLayers();
+            
+            // Initialize parcel button state to match map
+            initializeParcelsButton();
             
             // Load existing points after map is ready
             setTimeout(() => {
@@ -257,13 +316,49 @@ const MapManager = (function() {
     let cachedStyleData = null;
     let isLoadingParcels = false;
     
+    // Initialize parcel button state to match map state
+    function initializeParcelsButton() {
+        debugLog('=== INITIALIZING PARCELS BUTTON ===');
+        const parcelsBtn = document.getElementById('parcels-btn');
+        if (!parcelsBtn) {
+            debugLog('❌ Parcels button not found during initialization');
+            return;
+        }
+        
+        debugParcelState('BUTTON_INIT_BEFORE');
+        
+        // Determine if parcels should be visible based on current map style
+        const currentStyle = map.getStyle();
+        const isCustomStyle = currentStyle.name && currentStyle.name.includes('oliviervernin');
+        
+        debugLog('Current style name:', currentStyle.name);
+        debugLog('Is custom style (has parcels):', isCustomStyle);
+        debugLog('parcelsVisible variable:', parcelsVisible);
+        
+        // Sync button state with actual parcel visibility
+        if (parcelsVisible || isCustomStyle) {
+            debugLog('Setting button to ACTIVE (parcels should be visible)');
+            parcelsBtn.classList.add('active');
+            parcelsVisible = true; // Ensure variable matches
+        } else {
+            debugLog('Setting button to INACTIVE (parcels should be hidden)');
+            parcelsBtn.classList.remove('active');
+            parcelsVisible = false; // Ensure variable matches
+        }
+        
+        debugParcelState('BUTTON_INIT_AFTER');
+        debugLog('=== PARCELS BUTTON INITIALIZED ===');
+    }
+    
     // Toggle parcel visibility using optimized overlay approach
     function toggleParcels() {
         debugLog('=== TOGGLE PARCELS START ===');
-        debugLog('Previous parcelsVisible:', parcelsVisible);
+        debugParcelState('TOGGLE_START');
         
+        const previousVisible = parcelsVisible;
         parcelsVisible = !parcelsVisible;
         
+        debugLog('Previous parcelsVisible:', previousVisible);
         debugLog('New parcelsVisible:', parcelsVisible);
         debugLog('Using optimized overlay approach');
         
@@ -282,6 +377,7 @@ const MapManager = (function() {
             updateUserLocation(position.lat, position.lng, position.accuracy);
         }
         
+        debugParcelState('TOGGLE_END');
         debugLog('=== TOGGLE PARCELS COMPLETE ===');
         return parcelsVisible;
     }
@@ -377,9 +473,10 @@ const MapManager = (function() {
                 if (!map.getLayer(layerConfig.id)) {
                     debugLog('Adding parcel layer:', layerConfig.id);
                     map.addLayer(layerConfig);
+                    debugLog('✅ Added layer:', layerConfig.id);
                 } else {
                     debugLog('Showing existing parcel layer:', layerConfig.id);
-                    map.setLayoutProperty(layerConfig.id, 'visibility', 'visible');
+                    safeSetLayerVisibility(layerConfig.id, 'visible');
                 }
                 debugLog('✅ Parcel overlay added/shown successfully');
             } else {
@@ -420,9 +517,10 @@ const MapManager = (function() {
                 if (!map.getLayer(layerConfig.id)) {
                     debugLog('Adding parcel layer from composite:', layerConfig.id);
                     map.addLayer(layerConfig);
+                    debugLog('✅ Added composite layer:', layerConfig.id);
                 } else {
                     debugLog('Showing existing parcel layer from composite:', layerConfig.id);
-                    map.setLayoutProperty(layerConfig.id, 'visibility', 'visible');
+                    safeSetLayerVisibility(layerConfig.id, 'visible');
                 }
                 debugLog('✅ Parcel overlay added/shown from composite source');
             } else {
@@ -436,10 +534,32 @@ const MapManager = (function() {
         }
     }
     
+    // Safe layer visibility setter with error handling
+    function safeSetLayerVisibility(layerId, visibility) {
+        try {
+            if (map.getLayer(layerId)) {
+                debugLog(`Setting layer ${layerId} visibility to ${visibility}`);
+                map.setLayoutProperty(layerId, 'visibility', visibility);
+                
+                // Verify the change was applied
+                const actualVisibility = map.getLayoutProperty(layerId, 'visibility') || 'visible';
+                debugLog(`✅ Layer ${layerId} visibility is now: ${actualVisibility}`);
+                return true;
+            } else {
+                debugLog(`❌ Layer ${layerId} does not exist - cannot set visibility`);
+                return false;
+            }
+        } catch (error) {
+            debugLog(`❌ Error setting ${layerId} visibility to ${visibility}:`, error);
+            return false;
+        }
+    }
+    
     // Hide parcel overlay layers (improved approach - don't remove sources)
     function removeParcelOverlay() {
         try {
-            debugLog('Hiding parcel layers...');
+            debugLog('=== HIDING PARCEL LAYERS ===');
+            debugParcelState('BEFORE_HIDE');
             
             // Hide all parcel-related layers instead of removing them
             const currentLayers = map.getStyle().layers;
@@ -451,23 +571,27 @@ const MapManager = (function() {
                 layer.id.toLowerCase().includes('limite')
             );
             
+            debugLog(`Found ${parcelLayers.length} parcel layers to hide:`, parcelLayers.map(l => l.id));
+            
+            let successCount = 0;
             parcelLayers.forEach(layer => {
-                if (map.getLayer(layer.id)) {
-                    debugLog('Hiding parcel layer:', layer.id);
-                    map.setLayoutProperty(layer.id, 'visibility', 'none');
+                if (safeSetLayerVisibility(layer.id, 'none')) {
+                    successCount++;
                 }
             });
             
             // Hide demo layers if they exist
             if (map.getLayer('demo-boundaries')) {
                 debugLog('Hiding demo boundary layer');
-                map.setLayoutProperty('demo-boundaries', 'visibility', 'none');
+                safeSetLayerVisibility('demo-boundaries', 'none');
             }
             
-            debugLog('✅ Parcel overlay hidden successfully');
+            debugLog(`✅ Successfully hid ${successCount}/${parcelLayers.length} parcel layers`);
+            debugParcelState('AFTER_HIDE');
             
         } catch (error) {
-            debugLog('Error hiding parcel overlay:', error);
+            debugLog('❌ Error hiding parcel overlay:', error);
+            debugParcelState('ERROR_HIDE');
         }
     }
     
@@ -511,7 +635,7 @@ const MapManager = (function() {
             } else {
                 // Show existing demo layer
                 debugLog('Showing existing demo boundary layer');
-                map.setLayoutProperty('demo-boundaries', 'visibility', 'visible');
+                safeSetLayerVisibility('demo-boundaries', 'visible');
             }
             
             debugLog('✅ Fallback demo parcel overlay added/shown');
@@ -929,6 +1053,9 @@ const MapManager = (function() {
         clearPointMarkers,
         getPointMarkers,
         centerOnPoint,
-        refreshPointMarkers
+        refreshPointMarkers,
+        // Debug functions
+        debugParcelState,
+        initializeParcelsButton
     };
 })();

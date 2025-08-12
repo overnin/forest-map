@@ -218,23 +218,35 @@ const ForestMapApp = (function() {
     
     // Handle parcels button click
     function handleParcelsClick() {
-        debugLog('=== PARCEL BUTTON CLICKED ===');
-        debugLog('Button current classes:', this.classList.toString());
+        console.log('[APP] === PARCEL BUTTON CLICKED ===');
+        console.log('[APP] Button current classes:', this.classList.toString());
+        
+        // Debug state before toggle
+        if (typeof MapManager.debugParcelState === 'function') {
+            MapManager.debugParcelState('BUTTON_CLICK_BEFORE');
+        }
         
         const isVisible = MapManager.toggleParcels();
         
-        debugLog('Toggle returned isVisible:', isVisible);
+        console.log('[APP] Toggle returned isVisible:', isVisible);
         
         // Update button state
         if (isVisible) {
-            debugLog('Setting button to active (parcels ON)');
+            console.log('[APP] Setting button to active (parcels ON)');
             this.classList.add('active');
         } else {
-            debugLog('Setting button to inactive (parcels OFF)');
+            console.log('[APP] Setting button to inactive (parcels OFF)');
             this.classList.remove('active');
         }
         
-        debugLog('Button classes after update:', this.classList.toString());
+        console.log('[APP] Button classes after update:', this.classList.toString());
+        
+        // Debug state after toggle
+        if (typeof MapManager.debugParcelState === 'function') {
+            setTimeout(() => {
+                MapManager.debugParcelState('BUTTON_CLICK_AFTER');
+            }, 100);
+        }
         
         // Save preference
         savePreference('parcelsVisible', isVisible);
