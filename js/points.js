@@ -245,15 +245,40 @@ const PointManager = (function() {
                 
                 this.updateUI();
                 console.log(`[POINTS] ✅ Completed deletion of point ${pointId} (${type})`);
+                
+                // Clean up deletion tracking
+                this._deletingPoints.delete(pointId);
                 return true;
             }
             console.log(`[POINTS] ❌ Point ${pointId} not found in ${type} data`);
+            
+            // Clean up deletion tracking even if point not found
+            this._deletingPoints.delete(pointId);
             return false;
         },
+        
+        // Track deletion state to prevent duplicate calls
+        _deletingPoints: new Set(),
         
         // Delete point with immediate popup close for better UX
         deletePointWithPopupClose: function(pointId, type, buttonElement) {
             console.log(`[POINTS] deletePointWithPopupClose called with pointId: ${pointId}, type: ${type}`);
+            
+            // Prevent duplicate deletion attempts
+            if (this._deletingPoints.has(pointId)) {
+                console.log(`[POINTS] ⚠️ Deletion already in progress for ${pointId}, ignoring duplicate call`);
+                return false;
+            }
+            
+            // Mark as being deleted
+            this._deletingPoints.add(pointId);
+            
+            // Disable the button immediately to prevent double-clicks
+            if (buttonElement) {
+                buttonElement.disabled = true;
+                buttonElement.style.opacity = '0.5';
+                buttonElement.textContent = 'Deleting...';
+            }
             
             // Immediately close the popup for instant feedback
             if (buttonElement) {
@@ -271,8 +296,18 @@ const PointManager = (function() {
                 }
             }
             
-            // Then proceed with the actual deletion
-            return this.deletePoint(pointId, type);
+            // Add small delay to prevent immediate map clicks
+            setTimeout(() => {
+                // Then proceed with the actual deletion
+                const result = this.deletePoint(pointId, type);
+                
+                // If deletion failed, clean up tracking
+                if (!result) {
+                    this._deletingPoints.delete(pointId);
+                }
+            }, 50);
+            
+            return true; // Return immediately since deletion is async
         },
         
         // Close popup for a specific point
@@ -414,7 +449,7 @@ const PointManager = (function() {
                                 class="btn-edit">
                             ${point.notes ? i18n.t('editNotes') : i18n.t('addNotes')}
                         </button>
-                        <button onclick="PointManager.deletePointWithPopupClose('${point.id}', '${point.type}', this)" 
+                        <button onclick="event.stopPropagation(); event.preventDefault(); PointManager.deletePointWithPopupClose('${point.id}', '${point.type}', this); return false;" 
                                 class="btn-delete">
                             ${i18n.t('delete')}
                         </button>
