@@ -66,6 +66,9 @@ const MapManager = (function() {
             debugLog('Map loaded successfully');
             setupMapEvents();
             
+            // Initialize point layers
+            initializePointLayers();
+            
             // Load existing points after map is ready
             setTimeout(() => {
                 loadAllPoints();
@@ -629,68 +632,192 @@ const MapManager = (function() {
         return layers;
     }
     
-    // Point marker management functions
+    // Convert points to GeoJSON format for symbol layers
+    function pointsToGeoJSON(points, type) {
+        const pointTypes = PointManager.getPointTypes();
+        const typeConfig = pointTypes[type];
+        
+        return {
+            type: 'FeatureCollection',
+            features: points.map(point => ({
+                type: 'Feature',
+                geometry: {
+                    type: 'Point',
+                    coordinates: [point.lng, point.lat]
+                },
+                properties: {
+                    id: point.id,
+                    type: type,
+                    number: point.number,
+                    icon: typeConfig.icon,
+                    color: typeConfig.color,
+                    notes: point.notes || '',
+                    timestamp: point.timestamp,
+                    accuracy: point.accuracy,
+                    formattedCoords: point.formattedCoords,
+                    recordedBy: point.recordedBy || 'Unknown'
+                }
+            }))
+        };
+    }
+    
+    // Initialize point layers (replaces individual marker creation)
+    function initializePointLayers() {
+        const types = ['exploitation', 'clearing', 'boundary'];
+        const pointTypes = PointManager.getPointTypes();
+        
+        types.forEach(type => {
+            const sourceId = `points-${type}`;
+            const layerId = `points-layer-${type}`;
+            const layerTextId = `points-text-${type}`;
+            
+            // Remove existing source and layers if they exist
+            if (map.getLayer(layerId)) map.removeLayer(layerId);
+            if (map.getLayer(layerTextId)) map.removeLayer(layerTextId);
+            if (map.getSource(sourceId)) map.removeSource(sourceId);
+            
+            // Add source
+            map.addSource(sourceId, {
+                type: 'geojson',
+                data: {
+                    type: 'FeatureCollection',
+                    features: []
+                }
+            });
+            
+            const typeConfig = pointTypes[type];
+            
+            // Add circle layer for points
+            map.addLayer({
+                id: layerId,
+                type: 'circle',
+                source: sourceId,
+                paint: {
+                    'circle-radius': 15,
+                    'circle-color': typeConfig.color,
+                    'circle-stroke-width': 2,
+                    'circle-stroke-color': '#ffffff',
+                    'circle-opacity': 0.9
+                },
+                layout: {
+                    'visibility': 'visible'
+                }
+            });
+            
+            // Add text layer for icons and numbers
+            map.addLayer({
+                id: layerTextId,
+                type: 'symbol',
+                source: sourceId,
+                layout: {
+                    'text-field': '{icon}\n{number}',
+                    'text-size': 14,
+                    'text-anchor': 'center',
+                    'text-allow-overlap': true,
+                    'text-ignore-placement': true,
+                    'text-offset': [0, 0],
+                    'visibility': 'visible'
+                },
+                paint: {
+                    'text-color': '#ffffff',
+                    'text-halo-color': 'rgba(0, 0, 0, 0.5)',
+                    'text-halo-width': 1
+                }
+            });
+        });
+        
+        // Add click handlers for popups
+        setupPointClickHandlers();
+    }
+    
+    // Setup click handlers for point layers
+    function setupPointClickHandlers() {
+        const types = ['exploitation', 'clearing', 'boundary'];
+        
+        types.forEach(type => {
+            const layerId = `points-layer-${type}`;
+            
+            // Change cursor on hover
+            map.on('mouseenter', layerId, () => {
+                map.getCanvas().style.cursor = 'pointer';
+            });
+            
+            map.on('mouseleave', layerId, () => {
+                map.getCanvas().style.cursor = '';
+            });
+            
+            // Show popup on click
+            map.on('click', layerId, (e) => {
+                const coordinates = e.features[0].geometry.coordinates.slice();
+                const properties = e.features[0].properties;
+                
+                // Find the actual point object
+                const points = PointManager.getPointsByType(type);
+                const point = points.find(p => p.id === properties.id);
+                
+                if (point) {
+                    const popupContent = PointManager.createPopupContent(point);
+                    
+                    // Ensure that if the map is zoomed out such that multiple
+                    // copies of the feature are visible, the popup appears
+                    // over the copy being pointed to.
+                    while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+                        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+                    }
+                    
+                    new mapboxgl.Popup({
+                        closeButton: true,
+                        closeOnClick: false,
+                        maxWidth: '300px',
+                        offset: [0, -15]
+                    })
+                    .setLngLat(coordinates)
+                    .setHTML(popupContent)
+                    .addTo(map);
+                }
+            });
+        });
+    }
+    
+    // Update points on map (replaces addPointMarker)
+    function updatePointsLayer(type) {
+        const sourceId = `points-${type}`;
+        const source = map.getSource(sourceId);
+        
+        if (source) {
+            const points = PointManager.getPointsByType(type);
+            const geoJSON = pointsToGeoJSON(points, type);
+            source.setData(geoJSON);
+        }
+    }
+    
+    // Point marker management functions (kept for compatibility but modified)
     function addPointMarker(point) {
         if (!point || !map) return null;
         
-        // Create marker element
-        const el = document.createElement('div');
-        el.className = `point-marker marker-${point.type}`;
+        // Instead of creating individual markers, update the layer
+        updatePointsLayer(point.type);
         
-        // Get point type configuration
-        const pointTypes = PointManager.getPointTypes();
-        const typeConfig = pointTypes[point.type];
-        
-        el.innerHTML = `
-            <div class="marker-icon">${typeConfig.icon}</div>
-            <div class="marker-number">${point.number}</div>
-        `;
-        
-        // Create marker
-        const marker = new mapboxgl.Marker(el)
-            .setLngLat([point.lng, point.lat])
-            .addTo(map);
-        
-        // Add popup
-        const popupContent = PointManager.createPopupContent(point);
-        const popup = new mapboxgl.Popup({
-            closeButton: true,
-            closeOnClick: false,
-            maxWidth: '300px',
-            offset: [0, -40]
-        }).setHTML(popupContent);
-        
-        marker.setPopup(popup);
-        
-        // Store reference
-        marker.pointId = point.id;
-        marker.pointType = point.type;
-        pointMarkers.push(marker);
-        
-        // Register with PointManager
-        PointManager.addMarker(point.type, marker);
-        
-        // Add animation
-        el.classList.add('new');
-        setTimeout(() => {
-            el.classList.remove('new');
-        }, 500);
-        
-        return marker;
+        // Return a mock marker object for compatibility
+        return {
+            pointId: point.id,
+            pointType: point.type,
+            remove: () => removePointMarker(point.id)
+        };
     }
     
     // Load all existing points on map
     function loadAllPoints() {
         if (!PointManager) return;
         
-        // Clear existing markers first to ensure fresh icons
-        clearPointMarkers();
+        // Initialize point layers if not already done
+        if (!map.getSource('points-exploitation')) {
+            initializePointLayers();
+        }
         
+        // Update all point layers
         ['exploitation', 'clearing', 'boundary'].forEach(type => {
-            const points = PointManager.getPointsByType(type);
-            points.forEach(point => {
-                addPointMarker(point);
-            });
+            updatePointsLayer(type);
         });
         
         updatePointVisibility();
@@ -702,65 +829,64 @@ const MapManager = (function() {
         
         const visibility = PointManager.getVisibilitySettings();
         
-        pointMarkers.forEach(marker => {
-            if (marker.pointType) {
-                const element = marker.getElement();
-                const shouldShow = visibility[marker.pointType];
-                element.style.display = shouldShow ? 'block' : 'none';
+        ['exploitation', 'clearing', 'boundary'].forEach(type => {
+            const layerId = `points-layer-${type}`;
+            const layerTextId = `points-text-${type}`;
+            const shouldShow = visibility[type];
+            
+            if (map.getLayer(layerId)) {
+                map.setLayoutProperty(layerId, 'visibility', shouldShow ? 'visible' : 'none');
+            }
+            if (map.getLayer(layerTextId)) {
+                map.setLayoutProperty(layerTextId, 'visibility', shouldShow ? 'visible' : 'none');
             }
         });
     }
     
     // Remove point marker by ID
     function removePointMarker(pointId) {
-        const markerIndex = pointMarkers.findIndex(m => m.pointId === pointId);
-        if (markerIndex !== -1) {
-            const marker = pointMarkers[markerIndex];
-            
-            // Close popup if it exists and is open
-            if (marker.getPopup && marker.getPopup()) {
-                const popup = marker.getPopup();
-                if (popup.isOpen()) {
-                    popup.remove();
+        // Find which type this point belongs to
+        let pointType = null;
+        let pointFound = false;
+        
+        ['exploitation', 'clearing', 'boundary'].forEach(type => {
+            if (!pointFound) {
+                const points = PointManager.getPointsByType(type);
+                const point = points.find(p => p.id === pointId);
+                if (point) {
+                    pointType = type;
+                    pointFound = true;
                 }
             }
-            
-            // Remove marker from map
-            marker.remove();
-            
-            // Remove from pointMarkers array
-            pointMarkers.splice(markerIndex, 1);
-            
-            // Also remove from PointManager's marker arrays for consistency
-            if (typeof PointManager !== 'undefined' && marker.pointType) {
-                const pointManagerMarkers = PointManager.getMarkersByType ? PointManager.getMarkersByType(marker.pointType) : null;
-                if (pointManagerMarkers) {
-                    const pmIndex = pointManagerMarkers.findIndex(m => m.pointId === pointId);
-                    if (pmIndex !== -1) {
-                        pointManagerMarkers.splice(pmIndex, 1);
-                    }
-                }
-            }
-            
+        });
+        
+        // Update the layer for that type
+        if (pointType) {
+            updatePointsLayer(pointType);
             return true;
         }
+        
         return false;
     }
     
     // Clear all point markers of a specific type
     function clearPointMarkers(type) {
-        pointMarkers = pointMarkers.filter(marker => {
-            if (!type || marker.pointType === type) {
-                marker.remove();
-                return false;
-            }
-            return true;
-        });
+        if (type) {
+            // Clear specific type
+            updatePointsLayer(type);
+        } else {
+            // Clear all types
+            ['exploitation', 'clearing', 'boundary'].forEach(t => {
+                updatePointsLayer(t);
+            });
+        }
     }
     
-    // Get all point markers
+    // Get all point markers (returns empty array for compatibility)
     function getPointMarkers() {
-        return pointMarkers;
+        // This function is kept for compatibility but returns empty array
+        // as we no longer use individual marker objects
+        return [];
     }
     
     // Center map on a specific point
@@ -776,7 +902,8 @@ const MapManager = (function() {
     
     // Refresh all point markers (useful when point type config changes)
     function refreshPointMarkers() {
-        // Simply reload all points which will clear and recreate with fresh config
+        // Reinitialize layers and reload all points
+        initializePointLayers();
         loadAllPoints();
     }
     
