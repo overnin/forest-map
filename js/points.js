@@ -32,19 +32,19 @@ const PointManager = (function() {
     const POINT_TYPES = {
         exploitation: {
             getLabel: () => i18n.t('exploitation'),
-            icon: '💰',
+            icon: 'E',
             color: '#FF6B35',
             getDescription: () => i18n.t('exploitationDesc')
         },
         clearing: {
             getLabel: () => i18n.t('clearing'),
-            icon: '💀',
+            icon: 'C',
             color: '#DC143C',
             getDescription: () => i18n.t('clearingDesc')
         },
         boundary: {
             getLabel: () => i18n.t('boundary'),
-            icon: '📍',
+            icon: 'B',
             color: '#4169E1',
             getDescription: () => i18n.t('boundaryDesc')
         }
