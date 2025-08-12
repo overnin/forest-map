@@ -441,7 +441,7 @@ const ForestMapApp = (function() {
         
         if (!markBtn) return;
         
-        // Main mark button - toggle type selector or mark point
+        // Main mark button - simple click behavior
         markBtn.addEventListener('click', function(e) {
             if (e.shiftKey || !PointManager.hasSelectedType()) {
                 // Show type selector
@@ -452,17 +452,38 @@ const ForestMapApp = (function() {
             }
         });
         
-        // Long press for type selector
+        // Long press for type selector (always shows selector regardless of current state)
         let pressTimer;
-        markBtn.addEventListener('touchstart', function(e) {
-            e.preventDefault();
-            pressTimer = setTimeout(() => {
-                toggleTypeSelector();
-            }, 500);
-        }, { passive: false });
+        let longPressTriggered = false;
         
-        markBtn.addEventListener('touchend', function() {
+        markBtn.addEventListener('touchstart', function(e) {
+            longPressTriggered = false;
+            markBtn.classList.add('long-press-active');
+            pressTimer = setTimeout(() => {
+                longPressTriggered = true;
+                markBtn.classList.remove('long-press-active');
+                toggleTypeSelector();
+                // Add haptic feedback if available
+                if (navigator.vibrate) {
+                    navigator.vibrate(50);
+                }
+            }, 400); // Slightly shorter for better UX
+        }, { passive: true });
+        
+        markBtn.addEventListener('touchend', function(e) {
             clearTimeout(pressTimer);
+            markBtn.classList.remove('long-press-active');
+            // Prevent click event if long press was triggered
+            if (longPressTriggered) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        });
+        
+        markBtn.addEventListener('touchcancel', function() {
+            clearTimeout(pressTimer);
+            markBtn.classList.remove('long-press-active');
+            longPressTriggered = false;
         });
         
         // Type selection buttons
@@ -477,14 +498,64 @@ const ForestMapApp = (function() {
             });
         });
         
-        // Filter checkboxes
+        // Filter checkboxes and type switching
         ['exploitation', 'clearing', 'boundary'].forEach(type => {
             const checkbox = document.getElementById(`show-${type}`);
+            const filterItem = checkbox ? checkbox.closest('.filter-item') : null;
+            
             if (checkbox) {
+                // Checkbox functionality
                 checkbox.addEventListener('change', function() {
                     PointManager.toggleTypeVisibility(type);
                     updateMarkerVisibility();
                 });
+                
+                // Long press on filter item to select as current type
+                if (filterItem) {
+                    let filterPressTimer;
+                    let filterLongPressTriggered = false;
+                    
+                    filterItem.addEventListener('touchstart', function(e) {
+                        filterLongPressTriggered = false;
+                        filterItem.classList.add('long-press-active');
+                        filterPressTimer = setTimeout(() => {
+                            filterLongPressTriggered = true;
+                            filterItem.classList.remove('long-press-active');
+                            PointManager.setCurrentType(type);
+                            updateTypeIndicator(type);
+                            updateTypeButtonStates(type);
+                            showNotification(`Selected ${PointManager.getPointTypes()[type].getLabel()} as current type`, 'success');
+                            // Add haptic feedback
+                            if (navigator.vibrate) {
+                                navigator.vibrate(50);
+                            }
+                        }, 400);
+                    }, { passive: true });
+                    
+                    filterItem.addEventListener('touchend', function(e) {
+                        clearTimeout(filterPressTimer);
+                        filterItem.classList.remove('long-press-active');
+                        if (filterLongPressTriggered) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                        }
+                    });
+                    
+                    filterItem.addEventListener('touchcancel', function() {
+                        clearTimeout(filterPressTimer);
+                        filterItem.classList.remove('long-press-active');
+                        filterLongPressTriggered = false;
+                    });
+                    
+                    // Keep right-click for desktop
+                    filterItem.addEventListener('contextmenu', function(e) {
+                        e.preventDefault();
+                        PointManager.setCurrentType(type);
+                        updateTypeIndicator(type);
+                        updateTypeButtonStates(type);
+                        showNotification(`Selected ${PointManager.getPointTypes()[type].getLabel()} as current type`, 'success');
+                    });
+                }
             }
         });
         
@@ -516,6 +587,47 @@ const ForestMapApp = (function() {
                 clearTimeout(exportPressTimer);
             });
         }
+        
+        // Long press and click on type indicator to change type
+        let indicatorPressTimer;
+        let indicatorLongPressTriggered = false;
+        
+        document.addEventListener('touchstart', function(e) {
+            if (e.target.classList.contains('type-indicator')) {
+                indicatorLongPressTriggered = false;
+                indicatorPressTimer = setTimeout(() => {
+                    indicatorLongPressTriggered = true;
+                    toggleTypeSelector();
+                    if (navigator.vibrate) {
+                        navigator.vibrate(50);
+                    }
+                }, 400);
+            }
+        }, { passive: true });
+        
+        document.addEventListener('touchend', function(e) {
+            if (e.target.classList.contains('type-indicator')) {
+                clearTimeout(indicatorPressTimer);
+                if (indicatorLongPressTriggered) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+            }
+        });
+        
+        document.addEventListener('touchcancel', function(e) {
+            if (e.target.classList.contains('type-indicator')) {
+                clearTimeout(indicatorPressTimer);
+                indicatorLongPressTriggered = false;
+            }
+        });
+        
+        // Click on type indicator for desktop
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('type-indicator')) {
+                toggleTypeSelector();
+            }
+        });
     }
     
     // Toggle type selector visibility
@@ -542,6 +654,18 @@ const ForestMapApp = (function() {
             indicator.textContent = pointTypes[type].icon;
             indicator.style.display = 'inline-block';
             indicator.style.backgroundColor = pointTypes[type].color;
+        }
+        
+        // Update filter panel current type indicator
+        document.querySelectorAll('.filter-item').forEach(item => {
+            item.classList.remove('current-type');
+        });
+        
+        if (type) {
+            const currentFilterItem = document.querySelector(`#show-${type}`)?.closest('.filter-item');
+            if (currentFilterItem) {
+                currentFilterItem.classList.add('current-type');
+            }
         }
     }
     
