@@ -179,22 +179,35 @@ const ExportManager = {
         return b + g + r;
     },
     
-    // Generic file download function
+    // Generic file download function with mobile compatibility
     downloadFile: function(content, filename, mimeType) {
         try {
             const blob = new Blob([content], { type: mimeType + ';charset=utf-8' });
+            
+            // Check if we're on mobile device
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                           ('ontouchstart' in window) ||
+                           (window.innerWidth <= 768);
+            
+            // Try modern File System Access API first (Chrome 86+)
+            if ('showSaveFilePicker' in window) {
+                this.downloadWithFileSystemAPI(blob, filename, mimeType);
+                return;
+            }
+            
+            // Fallback to traditional method with mobile improvements
             const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
             
-            a.href = url;
-            a.download = filename;
-            a.style.display = 'none';
+            if (isMobile) {
+                // Mobile-specific handling
+                this.downloadMobile(url, filename, blob, mimeType);
+            } else {
+                // Desktop handling
+                this.downloadDesktop(url, filename);
+            }
             
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            
-            URL.revokeObjectURL(url);
+            // Clean up
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
             
             // Show success message
             this.showExportNotification(filename);
@@ -202,6 +215,159 @@ const ExportManager = {
             console.error('Export failed:', error);
             this.showExportNotification(null, error.message);
         }
+    },
+    
+    // Modern File System Access API download
+    downloadWithFileSystemAPI: async function(blob, filename, mimeType) {
+        try {
+            const fileHandle = await window.showSaveFilePicker({
+                suggestedName: filename,
+                types: [{
+                    description: 'Forest Map Export',
+                    accept: { [mimeType]: [`.${filename.split('.').pop()}`] }
+                }]
+            });
+            
+            const writable = await fileHandle.createWritable();
+            await writable.write(blob);
+            await writable.close();
+            
+            this.showExportNotification(filename);
+        } catch (error) {
+            if (error.name !== 'AbortError') {
+                console.error('File System API failed:', error);
+                // Fallback to traditional method
+                const url = URL.createObjectURL(blob);
+                this.downloadDesktop(url, filename);
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+            }
+        }
+    },
+    
+    // Mobile-optimized download
+    downloadMobile: function(url, filename, blob, mimeType) {
+        // Try multiple approaches for mobile
+        
+        // Approach 1: Try Web Share API with file
+        if (navigator.share && navigator.canShare) {
+            try {
+                const file = new File([blob], filename, { type: mimeType });
+                const shareData = { files: [file] };
+                
+                if (navigator.canShare(shareData)) {
+                    navigator.share(shareData).then(() => {
+                        this.showExportNotification(filename + ' (shared)');
+                    }).catch(() => {
+                        this.downloadMobileFallback(url, filename, blob);
+                    });
+                    return;
+                }
+            } catch (error) {
+                // Continue to fallback
+            }
+        }
+        
+        this.downloadMobileFallback(url, filename, blob);
+    },
+    
+    // Mobile fallback methods
+    downloadMobileFallback: function(url, filename, blob) {
+        // Approach 2: Open in new window/tab (iOS Safari compatible)
+        if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+            // iOS-specific: Open blob URL in new window
+            const newWindow = window.open();
+            if (newWindow) {
+                newWindow.location.href = url;
+                this.showMobileInstructions(filename);
+                return;
+            }
+        }
+        
+        // Approach 3: Traditional download with mobile considerations
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.style.cssText = 'position: fixed; top: -1000px; left: -1000px;';
+        
+        document.body.appendChild(a);
+        
+        // Add user interaction for mobile browsers
+        a.addEventListener('click', () => {
+            this.showMobileInstructions(filename);
+        });
+        
+        // Trigger click with timeout for mobile
+        setTimeout(() => {
+            a.click();
+            setTimeout(() => document.body.removeChild(a), 100);
+        }, 100);
+    },
+    
+    // Desktop download
+    downloadDesktop: function(url, filename) {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.style.display = 'none';
+        
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    },
+    
+    // Show mobile-specific instructions
+    showMobileInstructions: function(filename) {
+        const dialog = document.createElement('div');
+        dialog.className = 'mobile-download-dialog';
+        dialog.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            z-index: 5000;
+            max-width: 350px;
+            text-align: center;
+        `;
+        
+        dialog.innerHTML = `
+            <div style="margin-bottom: 20px;">
+                <svg width="48" height="48" style="color: #FF9800; margin-bottom: 15px;" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                </svg>
+                <h3 style="margin: 0 0 10px 0; color: #333;">Download Instructions</h3>
+            </div>
+            
+            <p style="color: #666; font-size: 14px; line-height: 1.5; margin: 15px 0;">
+                Your file <strong>${filename}</strong> should download automatically.
+            </p>
+            
+            <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin: 15px 0;">
+                <p style="color: #333; font-size: 13px; margin: 0; line-height: 1.4;">
+                    <strong>Mobile Tips:</strong><br>
+                    • Check your Downloads folder<br>
+                    • Look for browser download notification<br>
+                    • On iOS: Tap and hold the link, select "Download"
+                </p>
+            </div>
+            
+            <button onclick="document.body.removeChild(this.parentElement.parentElement)" 
+                    style="background: #2196F3; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 14px; margin-top: 10px;">
+                Got it
+            </button>
+        `;
+        
+        document.body.appendChild(dialog);
+        
+        // Auto-close after 8 seconds
+        setTimeout(() => {
+            if (dialog.parentNode) {
+                dialog.parentNode.removeChild(dialog);
+            }
+        }, 8000);
     },
     
     // Show export notification
