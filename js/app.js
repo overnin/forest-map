@@ -514,6 +514,7 @@ const ForestMapApp = (function() {
         markBtn.addEventListener('click', function(e) {
             if (e.shiftKey || !PointManager.hasSelectedType()) {
                 // Show type selector
+                isTypeSelecting = true;
                 toggleTypeSelector();
             } else {
                 // Mark point with current type
@@ -533,6 +534,7 @@ const ForestMapApp = (function() {
             pressTimer = setTimeout(() => {
                 longPressTriggered = true;
                 markBtn.classList.remove('long-press-active');
+                isTypeSelecting = true;
                 toggleTypeSelector();
                 // Add haptic feedback if available
                 if (navigator.vibrate) {
@@ -555,6 +557,11 @@ const ForestMapApp = (function() {
             
             // If it was a short press (under 400ms), trigger the normal action
             if (touchDuration < 400) {
+                // Prevent click handler from closing type selector immediately
+                if (!PointManager.hasSelectedType()) {
+                    isTypeSelecting = true;
+                }
+                
                 // Simulate click behavior for mobile
                 setTimeout(() => {
                     if (!PointManager.hasSelectedType()) {
@@ -670,7 +677,15 @@ const ForestMapApp = (function() {
         }
         
         // Close panels when clicking outside
+        let isTypeSelecting = false;
+        
         document.addEventListener('click', function(e) {
+            // Prevent immediate closing when type selector was just opened on mobile
+            if (isTypeSelecting) {
+                isTypeSelecting = false;
+                return;
+            }
+            
             if (!typeSelector.contains(e.target) && !markBtn.contains(e.target)) {
                 hideTypeSelector();
             }
@@ -706,6 +721,7 @@ const ForestMapApp = (function() {
                 indicatorLongPressTriggered = false;
                 indicatorPressTimer = setTimeout(() => {
                     indicatorLongPressTriggered = true;
+                    isTypeSelecting = true;
                     toggleTypeSelector();
                     if (navigator.vibrate) {
                         navigator.vibrate(50);
@@ -734,6 +750,7 @@ const ForestMapApp = (function() {
         // Click on type indicator for desktop
         document.addEventListener('click', function(e) {
             if (e.target.classList.contains('type-indicator')) {
+                isTypeSelecting = true;
                 toggleTypeSelector();
             }
         });
