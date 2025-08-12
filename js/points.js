@@ -208,17 +208,20 @@ const PointManager = (function() {
             
             const index = points[type].findIndex(p => p.id === pointId);
             if (index !== -1) {
+                console.log(`[POINTS] Starting deletion of point ${pointId} (${type})`);
+                
                 // First close any open popup for this point
                 this.closePopupForPoint(pointId);
                 
-                // Remove marker from map BEFORE removing from data (so point can still be found)
+                // Remove point from data FIRST (this is critical!)
+                points[type].splice(index, 1);
+                saveToLocalStorage(type);
+                console.log(`[POINTS] Removed point ${pointId} from data and localStorage`);
+                
+                // THEN update map layer (which reads from the updated data)
                 if (typeof MapManager !== 'undefined' && MapManager.removePointMarker) {
                     MapManager.removePointMarker(pointId, type);
                 }
-                
-                // Now remove point from data
-                points[type].splice(index, 1);
-                saveToLocalStorage(type);
                 
                 // Also clean up local marker reference as fallback
                 const markerIndex = markers[type].findIndex(m => m.pointId === pointId);
@@ -233,8 +236,10 @@ const PointManager = (function() {
                 }
                 
                 this.updateUI();
+                console.log(`[POINTS] ✅ Completed deletion of point ${pointId} (${type})`);
                 return true;
             }
+            console.log(`[POINTS] ❌ Point ${pointId} not found in ${type} data`);
             return false;
         },
         

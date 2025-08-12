@@ -1096,8 +1096,16 @@ const MapManager = (function() {
         
         if (source) {
             const points = PointManager.getPointsByType(type);
+            console.log(`[MAP] updatePointsLayer(${type}): Found ${points.length} points in data`);
+            console.log(`[MAP] Point IDs: [${points.map(p => p.id).join(', ')}]`);
+            
             const geoJSON = pointsToGeoJSON(points, type);
+            console.log(`[MAP] Generated GeoJSON with ${geoJSON.features.length} features`);
+            
             source.setData(geoJSON);
+            console.log(`[MAP] ✅ Updated source ${sourceId} with new data`);
+        } else {
+            console.error(`[MAP] ❌ Source ${sourceId} not found in updatePointsLayer`);
         }
     }
     
@@ -1151,10 +1159,12 @@ const MapManager = (function() {
     
     // Remove point marker by ID
     function removePointMarker(pointId, type = null) {
+        console.log(`[MAP] removePointMarker called for point ${pointId}, type: ${type}`);
         let pointType = type;
         
         // If type not provided, try to find which type this point belongs to
         if (!pointType) {
+            console.log(`[MAP] Type not provided, searching for point ${pointId}`);
             let pointFound = false;
             ['exploitation', 'clearing', 'boundary'].forEach(t => {
                 if (!pointFound) {
@@ -1163,6 +1173,7 @@ const MapManager = (function() {
                     if (point) {
                         pointType = t;
                         pointFound = true;
+                        console.log(`[MAP] Found point ${pointId} in type ${t}`);
                     }
                 }
             });
@@ -1170,11 +1181,22 @@ const MapManager = (function() {
         
         // Update the layer for that type to remove the deleted point
         if (pointType) {
-            debugLog(`Removing point ${pointId} from ${pointType} layer`);
-            updatePointsLayer(pointType);
-            return true;
+            console.log(`[MAP] Updating ${pointType} layer to remove point ${pointId}`);
+            
+            // Verify the source exists before updating
+            const sourceId = `points-${pointType}`;
+            const source = map.getSource(sourceId);
+            if (source) {
+                console.log(`[MAP] Source ${sourceId} found, updating layer`);
+                updatePointsLayer(pointType);
+                console.log(`[MAP] ✅ Successfully updated ${pointType} layer`);
+                return true;
+            } else {
+                console.error(`[MAP] ❌ Source ${sourceId} not found!`);
+                return false;
+            }
         } else {
-            debugLog(`❌ Could not find point type for ${pointId}`);
+            console.error(`[MAP] ❌ Could not determine point type for ${pointId}`);
         }
         
         return false;
