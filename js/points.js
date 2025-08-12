@@ -147,10 +147,6 @@ const PointManager = (function() {
             
             // Get or prompt for user name
             const userName = UserManager.getCurrentUserName();
-            if (!userName) {
-                console.log('User cancelled name input');
-                return null; // User cancelled name input
-            }
             
             // If getUserName returns a promise (first time today), handle it
             if (userName instanceof Promise) {
@@ -161,6 +157,12 @@ const PointManager = (function() {
                     }
                     return this.createPointWithUserName(type, name);
                 });
+            }
+            
+            // Check if user name is available
+            if (!userName) {
+                console.log('No user name available');
+                return null;
             }
             
             // User name already available

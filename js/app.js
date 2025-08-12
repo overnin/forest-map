@@ -49,9 +49,6 @@ const ForestMapApp = (function() {
         // Register service worker for PWA
         registerServiceWorker();
         
-        // Initialize version display state
-        updateFullscreenButtonState();
-        
         isInitialized = true;
     }
     
@@ -415,7 +412,6 @@ const ForestMapApp = (function() {
     // Update fullscreen button state
     function updateFullscreenButtonState() {
         const fullscreenBtn = document.getElementById('fullscreen-btn');
-        const versionDisplay = document.getElementById('version-display');
         if (!fullscreenBtn) return;
         
         // Check if we're in fullscreen mode (with broader detection for mobile)
@@ -440,18 +436,10 @@ const ForestMapApp = (function() {
         
         if (isFullscreen) {
             fullscreenBtn.classList.add('active');
-            if (versionDisplay) {
-                versionDisplay.classList.remove('hidden');
-                versionDisplay.classList.add('fullscreen-active');
-            }
-            debugLog('Entered fullscreen mode - showing version');
+            debugLog('Entered fullscreen mode');
         } else {
             fullscreenBtn.classList.remove('active');
-            if (versionDisplay) {
-                versionDisplay.classList.add('hidden');
-                versionDisplay.classList.remove('fullscreen-active');
-            }
-            debugLog('Exited fullscreen mode - hiding version');
+            debugLog('Exited fullscreen mode');
         }
     }
     
@@ -521,6 +509,9 @@ const ForestMapApp = (function() {
         const pointFilterSelector = document.getElementById('point-filter-selector');
         
         if (!markBtn) return;
+        
+        // Flag to prevent immediate popup closure on mobile
+        let isTypeSelecting = false;
         
         // Main mark button - simple click behavior
         markBtn.addEventListener('click', function(e) {
@@ -688,9 +679,7 @@ const ForestMapApp = (function() {
             console.warn('Clear all button not found during initialization');
         }
         
-        // Close panels when clicking outside
-        let isTypeSelecting = false;
-        
+        // Close panels when clicking outside        
         document.addEventListener('click', function(e) {
             // Prevent immediate closing when type selector was just opened on mobile
             if (isTypeSelecting) {
