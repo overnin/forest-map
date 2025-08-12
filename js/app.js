@@ -24,6 +24,9 @@ const ForestMapApp = (function() {
         // Initialize map
         MapManager.init();
         
+        // Initialize user management (cleanup old names)
+        UserManager.init();
+        
         // Initialize point management
         PointManager.init();
         
@@ -798,22 +801,35 @@ const ForestMapApp = (function() {
             return;
         }
         
-        const point = PointManager.markPoint(type);
-        if (point) {
-            // Add point to map
-            addPointToMap(point);
-            
-            // Update UI
-            PointManager.updateUI();
-            
-            // Show success notification
-            const pointTypes = PointManager.getPointTypes();
-            const message = i18n.t('pointMarked', {
-                type: pointTypes[type].getLabel(),
-                number: point.number
+        const result = PointManager.markPoint(type);
+        
+        // Handle both synchronous and asynchronous results
+        if (result instanceof Promise) {
+            result.then(point => {
+                if (point) {
+                    handlePointCreated(point, type);
+                }
             });
-            showNotification(message, 'success');
+        } else if (result) {
+            handlePointCreated(result, type);
         }
+    }
+    
+    // Handle successful point creation
+    function handlePointCreated(point, type) {
+        // Add point to map
+        addPointToMap(point);
+        
+        // Update UI
+        PointManager.updateUI();
+        
+        // Show success notification
+        const pointTypes = PointManager.getPointTypes();
+        const message = i18n.t('pointMarked', {
+            type: pointTypes[type].getLabel(),
+            number: point.number
+        });
+        showNotification(message, 'success');
     }
     
     // Add point to map

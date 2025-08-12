@@ -8,6 +8,7 @@ const ExportManager = {
             i18n.t('coordinates') + ' (Lat)',
             i18n.t('coordinates') + ' (Lng)',
             i18n.t('accuracy') + ' (m)',
+            i18n.t('recordedBy'),
             i18n.t('marked'),
             i18n.t('notes')
         ];
@@ -22,6 +23,7 @@ const ExportManager = {
                         point.lat,
                         point.lng,
                         point.accuracy,
+                        point.recordedBy || 'Unknown',
                         new Date(point.timestamp).toLocaleString(),
                         point.notes || ''
                     ]);
@@ -55,14 +57,26 @@ const ExportManager = {
                 points[type].forEach(point => {
                     gpx += `  <wpt lat="${point.lat}" lon="${point.lng}">\n`;
                     gpx += `    <name>${i18n.t(type)} #${point.number}</name>\n`;
-                    gpx += `    <desc>${point.notes || ''}</desc>\n`;
+                    
+                    // Enhanced description with collector info
+                    let desc = point.notes || '';
+                    if (point.recordedBy) {
+                        desc = `Recorded by: ${point.recordedBy}${desc ? ' - ' + desc : ''}`;
+                    }
+                    gpx += `    <desc>${desc}</desc>\n`;
                     gpx += `    <type>${type}</type>\n`;
                     gpx += `    <time>${new Date(point.timestamp).toISOString()}</time>\n`;
                     
-                    // Add accuracy as extensions
-                    if (point.accuracy) {
+                    // Add traceability as extensions
+                    if (point.accuracy || point.recordedBy) {
                         gpx += `    <extensions>\n`;
-                        gpx += `      <accuracy>${point.accuracy}</accuracy>\n`;
+                        if (point.accuracy) {
+                            gpx += `      <accuracy>${point.accuracy}</accuracy>\n`;
+                        }
+                        if (point.recordedBy) {
+                            gpx += `      <recordedBy>${point.recordedBy}</recordedBy>\n`;
+                            gpx += `      <recordedDate>${point.recordedDate || new Date(point.timestamp).toISOString().split('T')[0]}</recordedDate>\n`;
+                        }
                         gpx += `    </extensions>\n`;
                     }
                     
@@ -131,6 +145,9 @@ const ExportManager = {
                     kml += `          <b>Type:</b> ${i18n.t(type)}<br/>\n`;
                     kml += `          <b>${i18n.t('coordinates')}:</b> ${point.formattedCoords}<br/>\n`;
                     kml += `          <b>${i18n.t('accuracy')}:</b> ±${point.accuracy}m<br/>\n`;
+                    if (point.recordedBy) {
+                        kml += `          <b>${i18n.t('recordedBy')}:</b> ${point.recordedBy}<br/>\n`;
+                    }
                     kml += `          <b>${i18n.t('marked')}:</b> ${new Date(point.timestamp).toLocaleString()}<br/>\n`;
                     if (point.notes) {
                         kml += `          <b>${i18n.t('notes')}:</b> ${point.notes}<br/>\n`;
@@ -228,7 +245,16 @@ const ExportManager = {
                             accuracy: point.accuracy,
                             icon: typeConfig.icon,
                             color: typeConfig.color,
-                            formattedCoords: point.formattedCoords
+                            formattedCoords: point.formattedCoords,
+                            // TRACEABILITY FIELDS
+                            recordedBy: point.recordedBy || 'Unknown',
+                            recordedDate: point.recordedDate || new Date(point.timestamp).toISOString().split('T')[0],
+                            sessionId: point.sessionId || point.recordedDate || 'unknown',
+                            collectorInfo: {
+                                name: point.recordedBy || 'Unknown',
+                                date: point.recordedDate || new Date(point.timestamp).toISOString().split('T')[0],
+                                session: point.sessionId || 'unknown'
+                            }
                         }
                     });
                 });
@@ -245,6 +271,9 @@ const ExportManager = {
                 exportedBy: "Forest Map v2.0",
                 language: i18n.getCurrentLanguage(),
                 totalPoints: features.length,
+                // Collector summary
+                collectors: [...new Set(features.map(f => f.properties.recordedBy))],
+                sessions: [...new Set(features.map(f => f.properties.sessionId))],
                 pointTypes: {
                     exploitation: points.exploitation ? points.exploitation.length : 0,
                     clearing: points.clearing ? points.clearing.length : 0,

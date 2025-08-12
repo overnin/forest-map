@@ -62,7 +62,18 @@ const i18n = (function() {
             clearAllConfirmButton: 'Yes, Clear All',
             clearAllCancelButton: 'Cancel',
             clearAllSuccess: 'All points cleared successfully',
-            nothingToClear: 'No points to clear'
+            nothingToClear: 'No points to clear',
+            
+            // Traceability
+            enterYourName: 'Enter Your Name',
+            nameRequired: 'Name is required to record points',
+            recordedBy: 'Recorded by',
+            rememberNameToday: 'Your name will be remembered for today',
+            namePromptTitle: 'Identify Yourself',
+            namePromptMessage: 'Please enter your name to enable point traceability:',
+            confirm: 'Confirm',
+            session: 'Session',
+            collector: 'Collector'
         },
         fr: {
             // Point types
@@ -123,7 +134,18 @@ const i18n = (function() {
             clearAllConfirmButton: 'Oui, tout effacer',
             clearAllCancelButton: 'Annuler',
             clearAllSuccess: 'Tous les points ont été effacés avec succès',
-            nothingToClear: 'Aucun point à effacer'
+            nothingToClear: 'Aucun point à effacer',
+            
+            // Traceability
+            enterYourName: 'Entrez votre nom',
+            nameRequired: 'Le nom est requis pour enregistrer des points',
+            recordedBy: 'Enregistré par',
+            rememberNameToday: 'Votre nom sera mémorisé pour aujourd\'hui',
+            namePromptTitle: 'Identifiez-vous',
+            namePromptMessage: 'Veuillez entrer votre nom pour activer la traçabilité des points :',
+            confirm: 'Confirmer',
+            session: 'Session',
+            collector: 'Collecteur'
         }
     };
     

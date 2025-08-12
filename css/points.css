@@ -526,6 +526,57 @@
     background-color: #e0e0e0 !important;
 }
 
+/* User Name Dialog Styling */
+.user-name-dialog-overlay {
+    animation: fadeIn 0.3s ease-out;
+}
+
+.user-name-dialog {
+    animation: slideIn 0.4s ease-out;
+}
+
+/* User Name Input Styling */
+#user-name-input {
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+#user-name-input:focus {
+    outline: none;
+    border-color: #2196F3;
+    box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+}
+
+#user-name-input:invalid {
+    border-color: #f44336;
+}
+
+/* Popup User Info Styling */
+.popup-user-info {
+    background: #f8f9fa;
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin: 5px 0;
+    border-left: 3px solid #2196F3;
+}
+
+.popup-user-info strong {
+    color: #2196F3;
+}
+
+/* Button States */
+#name-confirm:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+#name-confirm:hover:not(:disabled) {
+    background-color: #1976D2;
+}
+
+#name-cancel:hover {
+    background-color: #e0e0e0;
+}
+
 /* Hide elements by default */
 .hidden {
     display: none !important;

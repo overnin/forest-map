@@ -145,6 +145,30 @@ const PointManager = (function() {
                 return null;
             }
             
+            // Get or prompt for user name
+            const userName = UserManager.getCurrentUserName();
+            if (!userName) {
+                console.log('User cancelled name input');
+                return null; // User cancelled name input
+            }
+            
+            // If getUserName returns a promise (first time today), handle it
+            if (userName instanceof Promise) {
+                return userName.then(name => {
+                    if (!name) {
+                        console.log('User cancelled name prompt');
+                        return null;
+                    }
+                    return this.createPointWithUserName(type, name);
+                });
+            }
+            
+            // User name already available
+            return this.createPointWithUserName(type, userName);
+        },
+        
+        // Create point with user name (helper method)
+        createPointWithUserName: function(type, userName) {
             const position = LocationTracker.getCurrentPosition();
             counters[type]++;
             
@@ -157,11 +181,18 @@ const PointManager = (function() {
                 accuracy: position.accuracy || 0,
                 timestamp: Date.now(),
                 formattedCoords: formatCoordinates(position.lat, position.lng),
-                notes: ''
+                notes: '',
+                // NEW TRACEABILITY FIELDS
+                recordedBy: userName,
+                recordedDate: new Date().toISOString().split('T')[0],
+                sessionId: new Date().toISOString().split('T')[0]
             };
             
             points[type].push(point);
             saveToLocalStorage(type);
+            
+            // Update session point count
+            UserManager.updateSessionPointCount();
             
             return point;
         },
@@ -352,6 +383,9 @@ const PointManager = (function() {
                         <p><strong>${i18n.t('type')}:</strong> ${typeConfig.getDescription()}</p>
                         <p><strong>${i18n.t('coordinates')}:</strong><br>${point.formattedCoords}</p>
                         <p><strong>${i18n.t('accuracy')}:</strong> ±${point.accuracy}m</p>
+                        ${point.recordedBy ? `
+                            <p><strong>${i18n.t('recordedBy')}:</strong> ${point.recordedBy}</p>
+                        ` : ''}
                         <p><strong>${i18n.t('marked')}:</strong> ${new Date(point.timestamp).toLocaleString()}</p>
                         ${point.notes ? `
                             <p><strong>${i18n.t('notes')}:</strong><br>
