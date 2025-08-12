@@ -175,13 +175,27 @@ const PointManager = (function() {
             
             const index = points[type].findIndex(p => p.id === pointId);
             if (index !== -1) {
+                // First close any open popup for this point
+                this.closePopupForPoint(pointId);
+                
+                // Remove point from data
                 points[type].splice(index, 1);
                 saveToLocalStorage(type);
                 
-                // Remove marker from map if it exists
+                // Remove marker from map using MapManager (proper cleanup)
+                if (typeof MapManager !== 'undefined' && MapManager.removePointMarker) {
+                    MapManager.removePointMarker(pointId);
+                }
+                
+                // Also clean up local marker reference as fallback
                 const markerIndex = markers[type].findIndex(m => m.pointId === pointId);
                 if (markerIndex !== -1) {
-                    markers[type][markerIndex].remove();
+                    // Close popup if it exists
+                    const marker = markers[type][markerIndex];
+                    if (marker.getPopup && marker.getPopup()) {
+                        marker.getPopup().remove();
+                    }
+                    marker.remove();
                     markers[type].splice(markerIndex, 1);
                 }
                 
@@ -189,6 +203,44 @@ const PointManager = (function() {
                 return true;
             }
             return false;
+        },
+        
+        // Delete point with immediate popup close for better UX
+        deletePointWithPopupClose: function(pointId, type, buttonElement) {
+            // Immediately close the popup for instant feedback
+            if (buttonElement) {
+                // Find the popup container and close it
+                const popup = buttonElement.closest('.point-popup');
+                if (popup && popup.parentElement) {
+                    // Find the mapbox popup wrapper and close it
+                    let popupWrapper = popup.parentElement;
+                    while (popupWrapper && !popupWrapper.classList.contains('mapboxgl-popup')) {
+                        popupWrapper = popupWrapper.parentElement;
+                    }
+                    if (popupWrapper) {
+                        popupWrapper.remove();
+                    }
+                }
+            }
+            
+            // Then proceed with the actual deletion
+            return this.deletePoint(pointId, type);
+        },
+        
+        // Close popup for a specific point
+        closePopupForPoint: function(pointId) {
+            // Find and close any open popups for this point
+            ['exploitation', 'clearing', 'boundary'].forEach(type => {
+                if (markers[type]) {
+                    const marker = markers[type].find(m => m.pointId === pointId);
+                    if (marker && marker.getPopup && marker.getPopup()) {
+                        const popup = marker.getPopup();
+                        if (popup.isOpen()) {
+                            popup.remove();
+                        }
+                    }
+                }
+            });
         },
         
         // Set current point type
@@ -311,7 +363,7 @@ const PointManager = (function() {
                                 class="btn-edit">
                             ${point.notes ? i18n.t('editNotes') : i18n.t('addNotes')}
                         </button>
-                        <button onclick="PointManager.deletePoint('${point.id}', '${point.type}')" 
+                        <button onclick="PointManager.deletePointWithPopupClose('${point.id}', '${point.type}', this)" 
                                 class="btn-delete">
                             ${i18n.t('delete')}
                         </button>

@@ -712,8 +712,33 @@ const MapManager = (function() {
     function removePointMarker(pointId) {
         const markerIndex = pointMarkers.findIndex(m => m.pointId === pointId);
         if (markerIndex !== -1) {
-            pointMarkers[markerIndex].remove();
+            const marker = pointMarkers[markerIndex];
+            
+            // Close popup if it exists and is open
+            if (marker.getPopup && marker.getPopup()) {
+                const popup = marker.getPopup();
+                if (popup.isOpen()) {
+                    popup.remove();
+                }
+            }
+            
+            // Remove marker from map
+            marker.remove();
+            
+            // Remove from pointMarkers array
             pointMarkers.splice(markerIndex, 1);
+            
+            // Also remove from PointManager's marker arrays for consistency
+            if (typeof PointManager !== 'undefined' && marker.pointType) {
+                const pointManagerMarkers = PointManager.getMarkersByType ? PointManager.getMarkersByType(marker.pointType) : null;
+                if (pointManagerMarkers) {
+                    const pmIndex = pointManagerMarkers.findIndex(m => m.pointId === pointId);
+                    if (pmIndex !== -1) {
+                        pointManagerMarkers.splice(pmIndex, 1);
+                    }
+                }
+            }
+            
             return true;
         }
         return false;
