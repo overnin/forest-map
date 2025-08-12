@@ -27,6 +27,13 @@ const ForestMapApp = (function() {
         // Initialize point management
         PointManager.init();
         
+        // Refresh map markers to ensure updated icons (like skull for clearing)
+        setTimeout(() => {
+            if (typeof MapManager !== 'undefined' && MapManager.refreshPointMarkers) {
+                MapManager.refreshPointMarkers();
+            }
+        }, 2000);
+        
         // Setup event listeners
         setupEventListeners();
         
@@ -241,7 +248,11 @@ const ForestMapApp = (function() {
     function handleFilterClick(e) {
         e.stopPropagation();
         const pointFilterSelector = document.getElementById('point-filter-selector');
-        pointFilterSelector.classList.toggle('hidden');
+        if (pointFilterSelector) {
+            pointFilterSelector.classList.toggle('hidden');
+        } else {
+            console.error('Point filter selector not found');
+        }
     }
     
     // Handle fullscreen button click
@@ -587,6 +598,8 @@ const ForestMapApp = (function() {
         const filterBtn = document.getElementById('filter-btn');
         if (filterBtn) {
             filterBtn.addEventListener('click', handleFilterClick);
+        } else {
+            console.warn('Filter button not found during initialization');
         }
         
         // Close panels when clicking outside
@@ -677,7 +690,7 @@ const ForestMapApp = (function() {
     
     // Update type indicator on mark button
     function updateTypeIndicator(type) {
-        const indicator = document.querySelector('.type-indicator');
+        const indicator = document.querySelector('#mark-btn .type-indicator');
         if (indicator && type) {
             const pointTypes = PointManager.getPointTypes();
             indicator.textContent = pointTypes[type].icon;

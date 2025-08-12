@@ -680,6 +680,9 @@ const MapManager = (function() {
     function loadAllPoints() {
         if (!PointManager) return;
         
+        // Clear existing markers first to ensure fresh icons
+        clearPointMarkers();
+        
         ['exploitation', 'clearing', 'boundary'].forEach(type => {
             const points = PointManager.getPointsByType(type);
             points.forEach(point => {
@@ -743,6 +746,12 @@ const MapManager = (function() {
         }
     }
     
+    // Refresh all point markers (useful when point type config changes)
+    function refreshPointMarkers() {
+        // Simply reload all points which will clear and recreate with fresh config
+        loadAllPoints();
+    }
+    
     return {
         init,
         updateUserLocation,
@@ -764,6 +773,7 @@ const MapManager = (function() {
         removePointMarker,
         clearPointMarkers,
         getPointMarkers,
-        centerOnPoint
+        centerOnPoint,
+        refreshPointMarkers
     };
 })();

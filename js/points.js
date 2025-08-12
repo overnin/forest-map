@@ -363,7 +363,7 @@ const PointManager = (function() {
             
             // Update current type indicator
             if (settings.currentType) {
-                const indicator = document.querySelector('.type-indicator');
+                const indicator = document.querySelector('#mark-btn .type-indicator');
                 if (indicator) {
                     indicator.textContent = POINT_TYPES[settings.currentType].icon;
                     indicator.style.display = 'inline';
