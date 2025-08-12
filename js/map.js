@@ -122,8 +122,13 @@ const MapManager = (function() {
             debugParcelState('MAP_LOADED');
             setupMapEvents();
             
-            // Initialize point layers
-            initializePointLayers();
+            // Add custom point icons first
+            addPointIcons();
+            
+            // Initialize point layers after a small delay to ensure icons are loaded
+            setTimeout(() => {
+                initializePointLayers();
+            }, 500);
             
             // Initialize parcel button state to match map
             initializeParcelsButton();
@@ -844,6 +849,126 @@ const MapManager = (function() {
         };
     }
     
+    // Generate custom canvas-based icons for each point type
+    function generatePointIcon(type, config, number) {
+        try {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const size = 32;
+            canvas.width = canvas.height = size;
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, size, size);
+            
+            // Draw circle background
+            ctx.fillStyle = config.color;
+            ctx.beginPath();
+            ctx.arc(size/2, size/2, size/2 - 2, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Draw white border
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // Set text properties
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            // Draw symbol based on type
+            let symbol;
+            switch(type) {
+                case 'exploitation':
+                    symbol = '$';
+                    ctx.font = 'bold 18px Arial';
+                    break;
+                case 'clearing':
+                    symbol = '✗';
+                    ctx.font = 'bold 16px Arial';
+                    break;
+                case 'boundary':
+                    symbol = '●';
+                    ctx.font = 'bold 14px Arial';
+                    break;
+                default:
+                    symbol = config.icon;
+                    ctx.font = 'bold 14px Arial';
+            }
+            
+            // Draw symbol in upper part
+            ctx.fillText(symbol, size/2, size/2 - 4);
+            
+            // Draw number in lower part if provided
+            if (number) {
+                ctx.font = 'bold 10px Arial';
+                ctx.fillText(number.toString(), size/2, size/2 + 8);
+            }
+            
+            return canvas.toDataURL('image/png');
+            
+        } catch (error) {
+            debugLog('Error generating icon for', type, ':', error);
+            return null;
+        }
+    }
+    
+    // Track which icons have been successfully loaded
+    let iconsLoaded = {
+        exploitation: false,
+        clearing: false,
+        boundary: false
+    };
+    
+    // Add generated icons to map
+    function addPointIcons() {
+        if (!PointManager) return;
+        
+        const pointTypes = PointManager.getPointTypes();
+        const types = ['exploitation', 'clearing', 'boundary'];
+        
+        types.forEach(type => {
+            try {
+                const config = pointTypes[type];
+                const iconData = generatePointIcon(type, config);
+                
+                if (iconData) {
+                    const img = new Image();
+                    img.onload = () => {
+                        try {
+                            // Add base icon without number
+                            map.addImage(`point-${type}`, img);
+                            iconsLoaded[type] = true;
+                            debugLog(`✅ Added icon for ${type}`);
+                        } catch (error) {
+                            debugLog(`❌ Failed to add icon for ${type}:`, error);
+                            iconsLoaded[type] = false;
+                        }
+                    };
+                    img.onerror = () => {
+                        debugLog(`❌ Failed to load generated icon for ${type}`);
+                        iconsLoaded[type] = false;
+                    };
+                    img.src = iconData;
+                } else {
+                    debugLog(`❌ Failed to generate icon data for ${type}`);
+                    iconsLoaded[type] = false;
+                }
+            } catch (error) {
+                debugLog(`❌ Error processing icon for ${type}:`, error);
+                iconsLoaded[type] = false;
+            }
+        });
+    }
+    
+    // Check if icon is available, fallback to text if not
+    function getIconImageOrFallback(type) {
+        if (iconsLoaded[type] && map.hasImage(`point-${type}`)) {
+            return `point-${type}`;
+        }
+        return null; // Will use text fallback
+    }
+    
     // Initialize point layers (replaces individual marker creation)
     function initializePointLayers() {
         const types = ['exploitation', 'clearing', 'boundary'];
@@ -852,11 +977,9 @@ const MapManager = (function() {
         types.forEach(type => {
             const sourceId = `points-${type}`;
             const layerId = `points-layer-${type}`;
-            const layerTextId = `points-text-${type}`;
             
             // Remove existing source and layers if they exist
             if (map.getLayer(layerId)) map.removeLayer(layerId);
-            if (map.getLayer(layerTextId)) map.removeLayer(layerTextId);
             if (map.getSource(sourceId)) map.removeSource(sourceId);
             
             // Add source
@@ -870,43 +993,47 @@ const MapManager = (function() {
             
             const typeConfig = pointTypes[type];
             
-            // Add circle layer for points
-            map.addLayer({
+            // Add symbol layer with custom icons and fallback
+            const layerConfig = {
                 id: layerId,
-                type: 'circle',
-                source: sourceId,
-                paint: {
-                    'circle-radius': 15,
-                    'circle-color': typeConfig.color,
-                    'circle-stroke-width': 2,
-                    'circle-stroke-color': '#ffffff',
-                    'circle-opacity': 0.9
-                },
-                layout: {
-                    'visibility': 'visible'
-                }
-            });
-            
-            // Add text layer for icons and numbers
-            map.addLayer({
-                id: layerTextId,
                 type: 'symbol',
                 source: sourceId,
                 layout: {
-                    'text-field': '{icon}\n{number}',
-                    'text-size': 14,
-                    'text-anchor': 'center',
                     'text-allow-overlap': true,
                     'text-ignore-placement': true,
-                    'text-offset': [0, 0],
                     'visibility': 'visible'
                 },
                 paint: {
                     'text-color': '#ffffff',
-                    'text-halo-color': 'rgba(0, 0, 0, 0.5)',
-                    'text-halo-width': 1
+                    'text-halo-color': 'rgba(0, 0, 0, 0.8)',
+                    'text-halo-width': 2
                 }
-            });
+            };
+            
+            // Try to use custom icon, fallback to text
+            const iconImage = getIconImageOrFallback(type);
+            if (iconImage) {
+                // Use custom icon with number below
+                layerConfig.layout['icon-image'] = iconImage;
+                layerConfig.layout['icon-size'] = 1.0;
+                layerConfig.layout['icon-allow-overlap'] = true;
+                layerConfig.layout['icon-ignore-placement'] = true;
+                layerConfig.layout['icon-anchor'] = 'center';
+                layerConfig.layout['text-field'] = '{number}';
+                layerConfig.layout['text-size'] = 10;
+                layerConfig.layout['text-anchor'] = 'center';
+                layerConfig.layout['text-offset'] = [0, 1.8];
+                debugLog(`Using custom icon for ${type}`);
+            } else {
+                // Fallback to text-based rendering (letters + numbers)
+                layerConfig.layout['text-field'] = '{icon}\n{number}';
+                layerConfig.layout['text-size'] = 14;
+                layerConfig.layout['text-anchor'] = 'center';
+                layerConfig.layout['text-offset'] = [0, 0];
+                debugLog(`Using text fallback for ${type}`);
+            }
+            
+            map.addLayer(layerConfig);
         });
         
         // Add click handlers for popups
@@ -1014,14 +1141,10 @@ const MapManager = (function() {
         
         ['exploitation', 'clearing', 'boundary'].forEach(type => {
             const layerId = `points-layer-${type}`;
-            const layerTextId = `points-text-${type}`;
             const shouldShow = visibility[type];
             
             if (map.getLayer(layerId)) {
                 map.setLayoutProperty(layerId, 'visibility', shouldShow ? 'visible' : 'none');
-            }
-            if (map.getLayer(layerTextId)) {
-                map.setLayoutProperty(layerTextId, 'visibility', shouldShow ? 'visible' : 'none');
             }
         });
     }
