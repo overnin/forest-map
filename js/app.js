@@ -532,6 +532,14 @@ const ForestMapApp = (function() {
         markBtn.addEventListener('click', function(e) {
             console.log('[APP] Mark button click event triggered');
             
+            // GLOBAL LOCK: Block if point creation is locked
+            if (globalPointCreationLock) {
+                console.log('[APP] 🔒 Mark button click BLOCKED - Global lock active');
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+            }
+            
             // Prevent duplicate execution if touchend already handled this
             if (actionExecuted) {
                 console.log('[APP] Action already executed by touch handler, ignoring click');
@@ -555,10 +563,25 @@ const ForestMapApp = (function() {
         let touchStartTime = 0;
         
         markBtn.addEventListener('touchstart', function(e) {
+            // GLOBAL LOCK: Block if point creation is locked
+            if (globalPointCreationLock) {
+                console.log('[APP] 🔒 Mark button touchstart BLOCKED - Global lock active');
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+            }
+            
             touchStartTime = Date.now();
             longPressTriggered = false;
             markBtn.classList.add('long-press-active');
             pressTimer = setTimeout(() => {
+                // Double-check global lock hasn't been activated during timeout
+                if (globalPointCreationLock) {
+                    console.log('[APP] 🔒 Long press action BLOCKED - Global lock activated during timeout');
+                    markBtn.classList.remove('long-press-active');
+                    return;
+                }
+                
                 longPressTriggered = true;
                 markBtn.classList.remove('long-press-active');
                 isTypeSelecting = true;
@@ -568,12 +591,20 @@ const ForestMapApp = (function() {
                     navigator.vibrate(50);
                 }
             }, 400);
-        }, { passive: true });
+        }, { passive: false }); // Changed to false to allow preventDefault
         
         markBtn.addEventListener('touchend', function(e) {
             const touchDuration = Date.now() - touchStartTime;
             clearTimeout(pressTimer);
             markBtn.classList.remove('long-press-active');
+            
+            // GLOBAL LOCK: Block if point creation is locked
+            if (globalPointCreationLock) {
+                console.log('[APP] 🔒 Mark button touchend BLOCKED - Global lock active');
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+            }
             
             // If it was a long press, prevent the click
             if (longPressTriggered) {
@@ -848,25 +879,47 @@ const ForestMapApp = (function() {
         });
     }
     
-    // Point creation state tracking for debounce
-    let isCreatingPoint = false;
-    let lastPointCreationTime = 0;
-    const POINT_CREATION_COOLDOWN = 1000; // 1 second cooldown
+    // GLOBAL Point creation protection - prevents ALL creation during cooldown
+    let globalPointCreationLock = false;
+    let globalLastPointCreationTime = 0;
+    let pointCreationCallCount = 0;
+    const GLOBAL_POINT_CREATION_COOLDOWN = isMobileDevice() ? 3000 : 1500; // Very long cooldown for mobile
+    
+    // Block ALL touch events during point creation
+    function blockAllTouchEvents(event) {
+        if (globalPointCreationLock) {
+            console.log(`[APP] 🚫 GLOBAL LOCK: Blocking ${event.type} event during point creation cooldown`);
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+            return false;
+        }
+    }
+    
+    // Add global touch event blockers for mobile
+    if (isMobileDevice()) {
+        ['touchstart', 'touchend', 'touchmove', 'click'].forEach(eventType => {
+            document.addEventListener(eventType, blockAllTouchEvents, { capture: true, passive: false });
+        });
+    }
     
     // Mark point at current location
     function markPointAtCurrentLocation() {
-        console.log('[APP] markPointAtCurrentLocation called');
+        pointCreationCallCount++;
+        const callId = pointCreationCallCount;
+        console.log(`[APP] markPointAtCurrentLocation called (#${callId})`);
         
-        // Check cooldown timer
-        const now = Date.now();
-        if (now - lastPointCreationTime < POINT_CREATION_COOLDOWN) {
-            console.log(`[APP] ⏱️ Point creation on cooldown (${POINT_CREATION_COOLDOWN - (now - lastPointCreationTime)}ms remaining), ignoring request`);
+        // GLOBAL LOCK: Check if creation is completely blocked
+        if (globalPointCreationLock) {
+            console.log(`[APP] 🔒 Call #${callId} BLOCKED - Global point creation lock active`);
             return;
         }
         
-        // Check if already creating point
-        if (isCreatingPoint) {
-            console.log('[APP] ⚠️ Point creation in progress, ignoring duplicate request');
+        // GLOBAL COOLDOWN: Check global cooldown timer
+        const now = Date.now();
+        const timeSinceLastCreation = now - globalLastPointCreationTime;
+        if (timeSinceLastCreation < GLOBAL_POINT_CREATION_COOLDOWN) {
+            console.log(`[APP] ⏱️ Call #${callId} BLOCKED - Global cooldown active (${GLOBAL_POINT_CREATION_COOLDOWN - timeSinceLastCreation}ms remaining)`);
             return;
         }
         
@@ -881,9 +934,18 @@ const ForestMapApp = (function() {
             return;
         }
         
-        // Set creation state and update timestamp
-        isCreatingPoint = true;
-        lastPointCreationTime = now;
+        // ACTIVATE GLOBAL LOCK - blocks ALL events on mobile
+        globalPointCreationLock = true;
+        globalLastPointCreationTime = now;
+        console.log('[APP] 🔒 GLOBAL LOCK ACTIVATED - Blocking all touch events for mobile');
+        
+        // Set timeout to release global lock
+        const lockDuration = isMobileDevice() ? 3000 : 1500;
+        setTimeout(() => {
+            globalPointCreationLock = false;
+            console.log('[APP] 🔓 GLOBAL LOCK RELEASED after', lockDuration, 'ms');
+        }, lockDuration);
+        
         console.log('[APP] 🔄 Starting point creation process');
         
         // Update button state to show creation in progress
@@ -900,23 +962,24 @@ const ForestMapApp = (function() {
                 } else {
                     updateMarkButtonState('error');
                 }
-                // Reset creation state
-                isCreatingPoint = false;
                 console.log('[APP] ✅ Point creation process completed (async)');
             }).catch(error => {
                 console.error('[APP] ❌ Point creation failed:', error);
                 updateMarkButtonState('error');
-                isCreatingPoint = false;
+                // Release global lock early on error
+                globalPointCreationLock = false;
+                console.log('[APP] 🔓 GLOBAL LOCK RELEASED early due to error');
             });
         } else if (result) {
             handlePointCreated(result, type);
             updateMarkButtonState('success');
-            isCreatingPoint = false;
             console.log('[APP] ✅ Point creation process completed (sync)');
         } else {
             updateMarkButtonState('error');
-            isCreatingPoint = false;
             console.log('[APP] ❌ Point creation failed (sync)');
+            // Release global lock early on error
+            globalPointCreationLock = false;
+            console.log('[APP] 🔓 GLOBAL LOCK RELEASED early due to error');
         }
     }
     
