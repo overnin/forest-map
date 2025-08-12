@@ -448,6 +448,8 @@ const MapManager = (function() {
     // Add parcel layers using extracted source configuration
     function addParcelLayersFromSource(sourceConfig, styleData) {
         try {
+            debugLog('=== DEDICATED SOURCE LAYER DETECTION ===');
+            
             // Add source if it doesn't exist
             if (!map.getSource('forest-parcels')) {
                 debugLog('Adding forest parcels source with config:', sourceConfig);
@@ -455,44 +457,76 @@ const MapManager = (function() {
                 parcelSourceAdded = true;
             }
             
-            // Find parcel-related layers in the style
-            const parcelLayers = styleData.layers.filter(layer => 
+            // Use CURRENT map layers instead of cached styleData.layers
+            const currentLayers = map.getStyle().layers;
+            debugLog('Using current map layers for dedicated source detection, total layers:', currentLayers.length);
+            
+            // Find parcel-related layers in the current style
+            const parcelLayers = currentLayers.filter(layer => 
                 layer.id.toLowerCase().includes('forest') ||
                 layer.id.toLowerCase().includes('parcel') ||
                 layer.id.toLowerCase().includes('boundary') ||
                 layer.id.toLowerCase().includes('limite')
             );
             
-            debugLog('Found parcel layers:', parcelLayers.map(l => l.id));
+            debugLog('Found dedicated source parcel layers:', parcelLayers.length);
+            parcelLayers.forEach(layer => {
+                const visibility = map.getLayoutProperty(layer.id, 'visibility') || 'visible';
+                debugLog(`  - ${layer.id} (${layer.type}, source: ${layer.source}): ${visibility}`);
+            });
             
-            // Add or show the first parcel layer found
+            // Show ALL parcel layers that match our criteria
             if (parcelLayers.length > 0) {
-                const layerConfig = parcelLayers[0];
-                layerConfig.source = 'forest-parcels'; // Use our source
+                let successCount = 0;
                 
-                if (!map.getLayer(layerConfig.id)) {
-                    debugLog('Adding parcel layer:', layerConfig.id);
-                    map.addLayer(layerConfig);
-                    debugLog('✅ Added layer:', layerConfig.id);
+                parcelLayers.forEach(layer => {
+                    try {
+                        if (map.getLayer(layer.id)) {
+                            // For layers with 'forest-parcels' source, just show them
+                            if (layer.source === 'forest-parcels') {
+                                debugLog('Showing existing forest-parcels layer:', layer.id);
+                                if (safeSetLayerVisibility(layer.id, 'visible')) {
+                                    successCount++;
+                                }
+                            }
+                            // For other sources (like composite), try to change source and show
+                            else {
+                                debugLog('Updating source and showing layer:', layer.id);
+                                // Note: We can't change source of existing layer, so just show it
+                                if (safeSetLayerVisibility(layer.id, 'visible')) {
+                                    successCount++;
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        debugLog('❌ Error processing layer:', layer.id, error);
+                    }
+                });
+                
+                debugLog(`✅ Successfully showed ${successCount}/${parcelLayers.length} dedicated source layers`);
+                
+                if (successCount > 0) {
+                    debugLog('✅ Parcel overlay shown from dedicated source');
                 } else {
-                    debugLog('Showing existing parcel layer:', layerConfig.id);
-                    safeSetLayerVisibility(layerConfig.id, 'visible');
+                    debugLog('❌ Failed to show any dedicated source layers, trying composite');
+                    addParcelLayersFromComposite(styleData);
                 }
-                debugLog('✅ Parcel overlay added/shown successfully');
             } else {
-                debugLog('No parcel layers found in style');
-                addFallbackParcelOverlay();
+                debugLog('No parcel layers found in dedicated source, trying composite');
+                addParcelLayersFromComposite(styleData);
             }
             
         } catch (error) {
-            debugLog('Error adding parcel layers from source:', error);
-            addFallbackParcelOverlay();
+            debugLog('❌ Error in addParcelLayersFromSource:', error);
+            addParcelLayersFromComposite(styleData);
         }
     }
     
     // Try using composite source (fallback)
     function addParcelLayersFromComposite(styleData) {
         try {
+            debugLog('=== COMPOSITE LAYER DETECTION ===');
+            
             // Use the composite source from the style
             if (!map.getSource('forest-parcels') && styleData.sources.composite) {
                 debugLog('Adding composite source for parcels');
@@ -500,8 +534,12 @@ const MapManager = (function() {
                 parcelSourceAdded = true;
             }
             
-            // Find parcel layers that use composite source
-            const parcelLayers = styleData.layers.filter(layer => 
+            // Use CURRENT map layers instead of cached styleData.layers
+            const currentLayers = map.getStyle().layers;
+            debugLog('Using current map layers for detection, total layers:', currentLayers.length);
+            
+            // Find parcel layers that use composite source from CURRENT state
+            const parcelLayers = currentLayers.filter(layer => 
                 layer.source === 'composite' && (
                     layer.id.toLowerCase().includes('forest') ||
                     layer.id.toLowerCase().includes('parcel') ||
@@ -510,26 +548,47 @@ const MapManager = (function() {
                 )
             );
             
+            debugLog('Found composite parcel layers:', parcelLayers.length);
+            parcelLayers.forEach(layer => {
+                const visibility = map.getLayoutProperty(layer.id, 'visibility') || 'visible';
+                debugLog(`  - ${layer.id} (${layer.type}, source: ${layer.source}): ${visibility}`);
+            });
+            
             if (parcelLayers.length > 0) {
-                const layerConfig = parcelLayers[0];
-                layerConfig.source = 'forest-parcels';
+                // Show ALL parcel layers, not just the first one
+                let successCount = 0;
+                parcelLayers.forEach(layer => {
+                    try {
+                        // For existing layers, just show them
+                        if (map.getLayer(layer.id)) {
+                            debugLog('Showing existing composite parcel layer:', layer.id);
+                            if (safeSetLayerVisibility(layer.id, 'visible')) {
+                                successCount++;
+                            }
+                        } else {
+                            // This shouldn't happen since we got the layer from current state
+                            debugLog('⚠️ Layer exists in style but not in map:', layer.id);
+                        }
+                    } catch (error) {
+                        debugLog('❌ Error showing layer:', layer.id, error);
+                    }
+                });
                 
-                if (!map.getLayer(layerConfig.id)) {
-                    debugLog('Adding parcel layer from composite:', layerConfig.id);
-                    map.addLayer(layerConfig);
-                    debugLog('✅ Added composite layer:', layerConfig.id);
+                debugLog(`✅ Successfully showed ${successCount}/${parcelLayers.length} composite parcel layers`);
+                
+                if (successCount > 0) {
+                    debugLog('✅ Parcel overlay shown from composite source');
                 } else {
-                    debugLog('Showing existing parcel layer from composite:', layerConfig.id);
-                    safeSetLayerVisibility(layerConfig.id, 'visible');
+                    debugLog('❌ Failed to show any composite layers, using fallback');
+                    addFallbackParcelOverlay();
                 }
-                debugLog('✅ Parcel overlay added/shown from composite source');
             } else {
-                debugLog('No parcel layers found in composite source');
+                debugLog('No parcel layers found in composite source, using fallback');
                 addFallbackParcelOverlay();
             }
             
         } catch (error) {
-            debugLog('Error adding parcel layers from composite:', error);
+            debugLog('❌ Error in addParcelLayersFromComposite:', error);
             addFallbackParcelOverlay();
         }
     }
