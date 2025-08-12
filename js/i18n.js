@@ -53,7 +53,16 @@ const i18n = (function() {
             downloadInstead: 'GeoJSON file downloaded',
             copiedToClipboard: 'Copied to clipboard',
             geoJsonDownloaded: 'GeoJSON file has been downloaded:',
-            shareInstructions: 'You can now share this file through any app or upload it to mapping services like QGIS, ArcGIS, or Google Earth.'
+            shareInstructions: 'You can now share this file through any app or upload it to mapping services like QGIS, ArcGIS, or Google Earth.',
+            
+            // Clear all functionality
+            clearAllPoints: 'Clear All Points',
+            clearAllConfirmTitle: 'Clear All Points?',
+            clearAllConfirmMessage: 'This will permanently delete all {count} recorded points. This action cannot be undone.',
+            clearAllConfirmButton: 'Yes, Clear All',
+            clearAllCancelButton: 'Cancel',
+            clearAllSuccess: 'All points cleared successfully',
+            nothingToClear: 'No points to clear'
         },
         fr: {
             // Point types
@@ -105,7 +114,16 @@ const i18n = (function() {
             downloadInstead: 'Fichier GeoJSON téléchargé',
             copiedToClipboard: 'Copié dans le presse-papier',
             geoJsonDownloaded: 'Le fichier GeoJSON a été téléchargé :',
-            shareInstructions: 'Vous pouvez maintenant partager ce fichier via n\'importe quelle application ou le télécharger vers des services de cartographie comme QGIS, ArcGIS ou Google Earth.'
+            shareInstructions: 'Vous pouvez maintenant partager ce fichier via n\'importe quelle application ou le télécharger vers des services de cartographie comme QGIS, ArcGIS ou Google Earth.',
+            
+            // Clear all functionality
+            clearAllPoints: 'Effacer tous les points',
+            clearAllConfirmTitle: 'Effacer tous les points ?',
+            clearAllConfirmMessage: 'Cela supprimera définitivement tous les {count} points enregistrés. Cette action ne peut pas être annulée.',
+            clearAllConfirmButton: 'Oui, tout effacer',
+            clearAllCancelButton: 'Annuler',
+            clearAllSuccess: 'Tous les points ont été effacés avec succès',
+            nothingToClear: 'Aucun point à effacer'
         }
     };
     

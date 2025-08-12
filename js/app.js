@@ -287,6 +287,22 @@ const ForestMapApp = (function() {
         }
     }
     
+    // Handle clear all button click
+    function handleClearAllClick(e) {
+        e.stopPropagation();
+        
+        const totalPoints = ['exploitation', 'clearing', 'boundary'].reduce((sum, type) => 
+            sum + PointManager.getCountByType(type), 0);
+        
+        if (totalPoints === 0) {
+            showNotification(i18n.t('nothingToClear'), 'info');
+            return;
+        }
+        
+        // Call PointManager's clearAllPoints which handles confirmation dialog
+        PointManager.clearAllPoints();
+    }
+    
     // Handle fullscreen button click
     function handleFullscreenClick() {
         const fullscreenBtn = document.getElementById('fullscreen-btn');
@@ -640,6 +656,14 @@ const ForestMapApp = (function() {
             shareBtn.addEventListener('click', handleShareClick);
         } else {
             console.warn('Share button not found during initialization');
+        }
+        
+        // Clear all button
+        const clearAllBtn = document.getElementById('clear-all-btn');
+        if (clearAllBtn) {
+            clearAllBtn.addEventListener('click', handleClearAllClick);
+        } else {
+            console.warn('Clear all button not found during initialization');
         }
         
         // Close panels when clicking outside

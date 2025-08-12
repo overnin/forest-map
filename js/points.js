@@ -414,11 +414,13 @@ const PointManager = (function() {
             });
             
             // Update current type indicator
-            if (settings.currentType) {
-                const indicator = document.querySelector('#mark-btn .type-indicator');
-                if (indicator) {
+            const indicator = document.querySelector('#mark-btn .type-indicator');
+            if (indicator) {
+                if (settings.currentType) {
                     indicator.textContent = POINT_TYPES[settings.currentType].icon;
                     indicator.style.display = 'inline';
+                } else {
+                    indicator.style.display = 'none';
                 }
             }
             
@@ -426,13 +428,14 @@ const PointManager = (function() {
             this.updateShareButton();
         },
         
-        // Update share button enabled state
+        // Update share button and clear all button enabled state
         updateShareButton: function() {
+            const totalPoints = ['exploitation', 'clearing', 'boundary'].reduce((sum, type) => 
+                sum + this.getCountByType(type), 0);
+            
+            // Update share button
             const shareBtn = document.getElementById('share-btn');
             if (shareBtn) {
-                const totalPoints = ['exploitation', 'clearing', 'boundary'].reduce((sum, type) => 
-                    sum + this.getCountByType(type), 0);
-                
                 if (totalPoints === 0) {
                     shareBtn.disabled = true;
                     shareBtn.style.opacity = '0.5';
@@ -442,6 +445,191 @@ const PointManager = (function() {
                     shareBtn.style.opacity = '1';
                     shareBtn.style.cursor = 'pointer';
                 }
+            }
+            
+            // Update clear all button
+            const clearAllBtn = document.getElementById('clear-all-btn');
+            if (clearAllBtn) {
+                if (totalPoints === 0) {
+                    clearAllBtn.disabled = true;
+                    clearAllBtn.style.opacity = '0.3';
+                    clearAllBtn.style.cursor = 'not-allowed';
+                } else {
+                    clearAllBtn.disabled = false;
+                    clearAllBtn.style.opacity = '1';
+                    clearAllBtn.style.cursor = 'pointer';
+                }
+            }
+        },
+        
+        // Clear all points with confirmation dialog
+        clearAllPoints: function() {
+            const totalPoints = ['exploitation', 'clearing', 'boundary'].reduce((sum, type) => 
+                sum + this.getCountByType(type), 0);
+            
+            if (totalPoints === 0) {
+                this.showClearAllNotification(i18n.t('nothingToClear'), 'info');
+                return;
+            }
+            
+            this.showClearAllConfirmDialog(totalPoints);
+        },
+        
+        // Show confirmation dialog for clearing all points
+        showClearAllConfirmDialog: function(totalPoints) {
+            const dialog = document.createElement('div');
+            dialog.className = 'clear-all-dialog-overlay';
+            dialog.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 4000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                backdrop-filter: blur(3px);
+                -webkit-backdrop-filter: blur(3px);
+            `;
+            
+            const dialogContent = document.createElement('div');
+            dialogContent.className = 'clear-all-dialog';
+            dialogContent.style.cssText = `
+                background: white;
+                padding: 30px;
+                border-radius: 12px;
+                box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+                max-width: 400px;
+                text-align: center;
+                margin: 20px;
+            `;
+            
+            dialogContent.innerHTML = `
+                <div style="margin-bottom: 20px;">
+                    <svg width="64" height="64" style="color: #f44336; margin-bottom: 15px;" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                    <h3 style="margin: 0 0 15px 0; color: #333; font-size: 20px;">${i18n.t('clearAllConfirmTitle')}</h3>
+                </div>
+                
+                <p style="color: #666; font-size: 16px; line-height: 1.5; margin: 20px 0 30px 0;">
+                    ${i18n.t('clearAllConfirmMessage', { count: totalPoints })}
+                </p>
+                
+                <div style="display: flex; gap: 15px; justify-content: center;">
+                    <button id="clear-all-cancel" 
+                            style="background: #f5f5f5; color: #333; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;">
+                        ${i18n.t('clearAllCancelButton')}
+                    </button>
+                    <button id="clear-all-confirm" 
+                            style="background: #f44336; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;">
+                        ${i18n.t('clearAllConfirmButton')}
+                    </button>
+                </div>
+            `;
+            
+            dialog.appendChild(dialogContent);
+            document.body.appendChild(dialog);
+            
+            // Handle cancel
+            document.getElementById('clear-all-cancel').addEventListener('click', () => {
+                document.body.removeChild(dialog);
+            });
+            
+            // Handle confirm
+            document.getElementById('clear-all-confirm').addEventListener('click', () => {
+                this.performClearAll();
+                document.body.removeChild(dialog);
+            });
+            
+            // Handle click outside dialog
+            dialog.addEventListener('click', (e) => {
+                if (e.target === dialog) {
+                    document.body.removeChild(dialog);
+                }
+            });
+            
+            // Handle escape key
+            const handleEscape = (e) => {
+                if (e.key === 'Escape') {
+                    document.body.removeChild(dialog);
+                    document.removeEventListener('keydown', handleEscape);
+                }
+            };
+            document.addEventListener('keydown', handleEscape);
+        },
+        
+        // Actually perform the clearing of all points
+        performClearAll: function() {
+            const types = ['exploitation', 'clearing', 'boundary'];
+            
+            // Clear all points from data
+            types.forEach(type => {
+                points[type] = [];
+                counters[type] = 0;
+                saveToLocalStorage(type);
+            });
+            
+            // Clear all markers from map
+            types.forEach(type => {
+                // Close all popups and remove markers
+                if (markers[type]) {
+                    markers[type].forEach(marker => {
+                        if (marker.getPopup && marker.getPopup()) {
+                            marker.getPopup().remove();
+                        }
+                        marker.remove();
+                    });
+                    markers[type] = [];
+                }
+            });
+            
+            // Clear MapManager's pointMarkers array
+            if (typeof MapManager !== 'undefined' && MapManager.clearPointMarkers) {
+                MapManager.clearPointMarkers();
+            }
+            
+            // Reset current type
+            settings.currentType = null;
+            saveSettings();
+            
+            // Update UI
+            this.updateUI();
+            
+            // Show success message
+            this.showClearAllNotification(i18n.t('clearAllSuccess'), 'success');
+        },
+        
+        // Show notification for clear all operations
+        showClearAllNotification: function(message, type = 'info') {
+            if (typeof LocationTracker !== 'undefined' && LocationTracker.updateStatus) {
+                LocationTracker.updateStatus(message, type);
+            } else {
+                // Fallback notification
+                const notification = document.createElement('div');
+                notification.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    background: ${type === 'error' ? '#f44336' : type === 'success' ? '#4CAF50' : '#2196F3'};
+                    color: white;
+                    padding: 12px 20px;
+                    border-radius: 6px;
+                    z-index: 3001;
+                    font-size: 14px;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                `;
+                notification.textContent = message;
+                document.body.appendChild(notification);
+                
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 3000);
             }
         },
         

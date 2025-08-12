@@ -465,6 +465,67 @@
     transform: none;
 }
 
+/* Clear All Button Styling */
+#clear-all-btn {
+    position: relative;
+}
+
+#clear-all-btn.danger {
+    background-color: #f44336;
+}
+
+#clear-all-btn.danger:hover:not(:disabled) {
+    background-color: #d32f2f;
+}
+
+#clear-all-btn.danger:active {
+    transform: scale(0.95);
+}
+
+#clear-all-btn:disabled {
+    opacity: 0.3 !important;
+    cursor: not-allowed !important;
+}
+
+#clear-all-btn:disabled:hover {
+    background-color: #f44336 !important;
+    transform: none;
+}
+
+/* Clear All Dialog Styling */
+.clear-all-dialog-overlay {
+    animation: fadeIn 0.2s ease-out;
+}
+
+.clear-all-dialog {
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideIn {
+    from { 
+        opacity: 0; 
+        transform: scale(0.9) translateY(-20px);
+    }
+    to { 
+        opacity: 1; 
+        transform: scale(1) translateY(0);
+    }
+}
+
+/* Clear All Button States */
+#clear-all-confirm:hover {
+    background-color: #d32f2f !important;
+}
+
+#clear-all-cancel:hover {
+    background-color: #e0e0e0 !important;
+}
+
 /* Hide elements by default */
 .hidden {
     display: none !important;
