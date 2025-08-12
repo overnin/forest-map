@@ -15,7 +15,7 @@ const i18n = (function() {
             // UI elements
             markPoint: 'Mark point at current location',
             selectPointType: 'Select Point Type:',
-            pointFilters: 'Point Filters (Long press to switch)',
+            pointFilters: 'Point Filters',
             points: 'Points',
             longPressToSwitch: 'Long press mark button or type indicator to change type',
             
@@ -56,7 +56,7 @@ const i18n = (function() {
             // UI elements
             markPoint: 'Marquer un point à la position actuelle',
             selectPointType: 'Sélectionner le type de point :',
-            pointFilters: 'Filtres de points (Appui long pour changer)',
+            pointFilters: 'Filtres de points',
             points: 'Points',
             longPressToSwitch: 'Appui long sur le bouton ou l\'indicateur pour changer de type',
             

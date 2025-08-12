@@ -57,6 +57,12 @@
             </svg>
             <span class="type-indicator"></span>
         </button>
+        <!-- Filter Button -->
+        <button id="filter-btn" class="control-btn" data-i18n-title="pointFilters">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"></path>
+            </svg>
+        </button>
     </div>
     
     <!-- Status Bar -->
@@ -119,7 +125,7 @@
                 <span class="type-count">0</span>
             </button>
             <button class="type-btn" data-type="clearing">
-                <span class="type-icon">🚫</span>
+                <span class="type-icon">💀</span>
                 <span class="type-label" data-i18n="clearing">Clearing</span>
                 <span class="type-count">0</span>
             </button>
@@ -131,37 +137,32 @@
         </div>
     </div>
     
-    <!-- Filter Panel -->
-    <div id="filter-panel" class="filter-panel">
-        <div class="filter-header">
-            <h3 data-i18n="pointFilters">Point Filters</h3>
-            <button class="filter-toggle-btn">▼</button>
+    <!-- Point Filter Selector (Hidden by default) -->
+    <div id="point-filter-selector" class="point-filter-selector hidden">
+        <h3 data-i18n="pointFilters">Point Filters</h3>
+        <div class="filter-item">
+            <input type="checkbox" id="show-exploitation" checked>
+            <label for="show-exploitation">
+                <span class="marker-dot exploitation"></span>
+                <span data-i18n="exploitation">Exploitation</span>
+                <span class="filter-count" id="count-exploitation">0</span>
+            </label>
         </div>
-        <div class="filter-content">
-            <div class="filter-item">
-                <input type="checkbox" id="show-exploitation" checked>
-                <label for="show-exploitation">
-                    <span class="marker-dot exploitation"></span>
-                    <span data-i18n="exploitation">Exploitation</span>
-                    <span class="filter-count" id="count-exploitation">0</span>
-                </label>
-            </div>
-            <div class="filter-item">
-                <input type="checkbox" id="show-clearing" checked>
-                <label for="show-clearing">
-                    <span class="marker-dot clearing"></span>
-                    <span data-i18n="clearing">Clearing</span>
-                    <span class="filter-count" id="count-clearing">0</span>
-                </label>
-            </div>
-            <div class="filter-item">
-                <input type="checkbox" id="show-boundary" checked>
-                <label for="show-boundary">
-                    <span class="marker-dot boundary"></span>
-                    <span data-i18n="boundary">Boundary</span>
-                    <span class="filter-count" id="count-boundary">0</span>
-                </label>
-            </div>
+        <div class="filter-item">
+            <input type="checkbox" id="show-clearing" checked>
+            <label for="show-clearing">
+                <span class="marker-dot clearing"></span>
+                <span data-i18n="clearing">Clearing</span>
+                <span class="filter-count" id="count-clearing">0</span>
+            </label>
+        </div>
+        <div class="filter-item">
+            <input type="checkbox" id="show-boundary" checked>
+            <label for="show-boundary">
+                <span class="marker-dot boundary"></span>
+                <span data-i18n="boundary">Boundary</span>
+                <span class="filter-count" id="count-boundary">0</span>
+            </label>
         </div>
     </div>
     

@@ -1,5 +1,10 @@
 /* Point Marking Feature Styles */
 
+/* Mark Button needs relative positioning for indicator */
+#mark-btn {
+    position: relative;
+}
+
 /* Type Indicator on Mark Button */
 .type-indicator {
     display: none;
@@ -107,51 +112,27 @@
     font-weight: bold;
 }
 
-/* Filter Panel */
-.filter-panel {
+/* Point Filter Selector Dialog (similar to layer selector) */
+.point-filter-selector {
     position: absolute;
     top: 60px;
     right: 10px;
-    background: white;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 3px 12px rgba(0,0,0,0.15);
-    z-index: 999;
+    padding: 15px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    z-index: 1001;
     min-width: 200px;
-    border: 1px solid #e0e0e0;
+    border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-.filter-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-bottom: 8px;
-    border-bottom: 1px solid #e0e0e0;
-    margin-bottom: 8px;
-}
-
-.filter-header h3 {
-    margin: 0;
-    font-size: 14px;
+.point-filter-selector h3 {
+    margin: 0 0 15px 0;
+    font-size: 16px;
     color: #333;
-}
-
-.filter-toggle-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0;
-    font-size: 12px;
-    color: #666;
-    transition: transform 0.3s;
-}
-
-.filter-panel.collapsed .filter-toggle-btn {
-    transform: rotate(-90deg);
-}
-
-.filter-panel.collapsed .filter-content {
-    display: none;
+    font-weight: 600;
 }
 
 .filter-item {

@@ -237,6 +237,13 @@ const ForestMapApp = (function() {
         layerSelector.classList.toggle('hidden');
     }
     
+    // Handle filter button click
+    function handleFilterClick(e) {
+        e.stopPropagation();
+        const pointFilterSelector = document.getElementById('point-filter-selector');
+        pointFilterSelector.classList.toggle('hidden');
+    }
+    
     // Handle fullscreen button click
     function handleFullscreenClick() {
         const fullscreenBtn = document.getElementById('fullscreen-btn');
@@ -437,7 +444,7 @@ const ForestMapApp = (function() {
     function initializePointMarkingEvents() {
         const markBtn = document.getElementById('mark-btn');
         const typeSelector = document.getElementById('type-selector');
-        const filterPanel = document.getElementById('filter-panel');
+        const pointFilterSelector = document.getElementById('point-filter-selector');
         
         if (!markBtn) return;
         
@@ -455,8 +462,10 @@ const ForestMapApp = (function() {
         // Long press for type selector (always shows selector regardless of current state)
         let pressTimer;
         let longPressTriggered = false;
+        let touchStartTime = 0;
         
         markBtn.addEventListener('touchstart', function(e) {
+            touchStartTime = Date.now();
             longPressTriggered = false;
             markBtn.classList.add('long-press-active');
             pressTimer = setTimeout(() => {
@@ -467,16 +476,31 @@ const ForestMapApp = (function() {
                 if (navigator.vibrate) {
                     navigator.vibrate(50);
                 }
-            }, 400); // Slightly shorter for better UX
+            }, 400);
         }, { passive: true });
         
         markBtn.addEventListener('touchend', function(e) {
+            const touchDuration = Date.now() - touchStartTime;
             clearTimeout(pressTimer);
             markBtn.classList.remove('long-press-active');
-            // Prevent click event if long press was triggered
+            
+            // If it was a long press, prevent the click
             if (longPressTriggered) {
                 e.preventDefault();
                 e.stopPropagation();
+                return;
+            }
+            
+            // If it was a short press (under 400ms), trigger the normal action
+            if (touchDuration < 400) {
+                // Simulate click behavior for mobile
+                setTimeout(() => {
+                    if (!PointManager.hasSelectedType()) {
+                        toggleTypeSelector();
+                    } else {
+                        markPointAtCurrentLocation();
+                    }
+                }, 10);
             }
         });
         
@@ -559,18 +583,23 @@ const ForestMapApp = (function() {
             }
         });
         
-        // Filter panel toggle
-        const filterToggleBtn = document.querySelector('.filter-toggle-btn');
-        if (filterToggleBtn) {
-            filterToggleBtn.addEventListener('click', function() {
-                filterPanel.classList.toggle('collapsed');
-            });
+        // Filter button
+        const filterBtn = document.getElementById('filter-btn');
+        if (filterBtn) {
+            filterBtn.addEventListener('click', handleFilterClick);
         }
         
         // Close panels when clicking outside
         document.addEventListener('click', function(e) {
             if (!typeSelector.contains(e.target) && !markBtn.contains(e.target)) {
                 hideTypeSelector();
+            }
+            
+            const filterBtn = document.getElementById('filter-btn');
+            if (pointFilterSelector && filterBtn && 
+                !pointFilterSelector.contains(e.target) && 
+                !filterBtn.contains(e.target)) {
+                pointFilterSelector.classList.add('hidden');
             }
         });
         

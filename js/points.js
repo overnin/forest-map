@@ -38,7 +38,7 @@ const PointManager = (function() {
         },
         clearing: {
             getLabel: () => i18n.t('clearing'),
-            icon: '🚫',
+            icon: '💀',
             color: '#DC143C',
             getDescription: () => i18n.t('clearingDesc')
         },
