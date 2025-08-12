@@ -369,6 +369,28 @@ const PointManager = (function() {
                     indicator.style.display = 'inline';
                 }
             }
+            
+            // Update share button state
+            this.updateShareButton();
+        },
+        
+        // Update share button enabled state
+        updateShareButton: function() {
+            const shareBtn = document.getElementById('share-btn');
+            if (shareBtn) {
+                const totalPoints = ['exploitation', 'clearing', 'boundary'].reduce((sum, type) => 
+                    sum + this.getCountByType(type), 0);
+                
+                if (totalPoints === 0) {
+                    shareBtn.disabled = true;
+                    shareBtn.style.opacity = '0.5';
+                    shareBtn.style.cursor = 'not-allowed';
+                } else {
+                    shareBtn.disabled = false;
+                    shareBtn.style.opacity = '1';
+                    shareBtn.style.cursor = 'pointer';
+                }
+            }
         },
         
         // Export data

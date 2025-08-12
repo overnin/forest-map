@@ -255,6 +255,38 @@ const ForestMapApp = (function() {
         }
     }
     
+    // Handle share button click
+    function handleShareClick(e) {
+        e.stopPropagation();
+        
+        const types = ['exploitation', 'clearing', 'boundary'];
+        const totalPoints = types.reduce((sum, type) => 
+            sum + PointManager.getCountByType(type), 0);
+        
+        if (totalPoints === 0) {
+            showNotification(i18n.t('noPointsToShare'), 'error');
+            return;
+        }
+        
+        // Add sharing animation
+        const shareBtn = document.getElementById('share-btn');
+        shareBtn.classList.add('sharing');
+        
+        // Generate and share GeoJSON
+        const points = PointManager.getAllPoints();
+        try {
+            ExportManager.exportToGeoJSON(points, types, { share: true });
+        } catch (error) {
+            console.error('Share failed:', error);
+            showNotification(i18n.t('shareFailed'), 'error');
+        } finally {
+            // Remove sharing animation
+            setTimeout(() => {
+                shareBtn.classList.remove('sharing');
+            }, 2000);
+        }
+    }
+    
     // Handle fullscreen button click
     function handleFullscreenClick() {
         const fullscreenBtn = document.getElementById('fullscreen-btn');
@@ -600,6 +632,14 @@ const ForestMapApp = (function() {
             filterBtn.addEventListener('click', handleFilterClick);
         } else {
             console.warn('Filter button not found during initialization');
+        }
+        
+        // Share button
+        const shareBtn = document.getElementById('share-btn');
+        if (shareBtn) {
+            shareBtn.addEventListener('click', handleShareClick);
+        } else {
+            console.warn('Share button not found during initialization');
         }
         
         // Close panels when clicking outside

@@ -42,7 +42,18 @@ const i18n = (function() {
             
             // Status
             noGPS: 'No GPS signal',
-            gpsAccuracy: 'GPS Accuracy: ±{accuracy}m'
+            gpsAccuracy: 'GPS Accuracy: ±{accuracy}m',
+            
+            // Share functionality
+            sharePoints: 'Share Points',
+            shareGeoJSON: 'Share GeoJSON',
+            noPointsToShare: 'No points to share',
+            shareSuccess: 'Points shared successfully',
+            shareFailed: 'Sharing failed',
+            downloadInstead: 'GeoJSON file downloaded',
+            copiedToClipboard: 'Copied to clipboard',
+            geoJsonDownloaded: 'GeoJSON file has been downloaded:',
+            shareInstructions: 'You can now share this file through any app or upload it to mapping services like QGIS, ArcGIS, or Google Earth.'
         },
         fr: {
             // Point types
@@ -83,7 +94,18 @@ const i18n = (function() {
             
             // Status
             noGPS: 'Pas de signal GPS',
-            gpsAccuracy: 'Précision GPS : ±{accuracy}m'
+            gpsAccuracy: 'Précision GPS : ±{accuracy}m',
+            
+            // Share functionality
+            sharePoints: 'Partager les points',
+            shareGeoJSON: 'Partager en GeoJSON',
+            noPointsToShare: 'Aucun point à partager',
+            shareSuccess: 'Points partagés avec succès',
+            shareFailed: 'Échec du partage',
+            downloadInstead: 'Fichier GeoJSON téléchargé',
+            copiedToClipboard: 'Copié dans le presse-papier',
+            geoJsonDownloaded: 'Le fichier GeoJSON a été téléchargé :',
+            shareInstructions: 'Vous pouvez maintenant partager ce fichier via n\'importe quelle application ou le télécharger vers des services de cartographie comme QGIS, ArcGIS ou Google Earth.'
         }
     };
     

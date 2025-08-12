@@ -202,6 +202,239 @@ const ExportManager = {
         }
     },
     
+    // Export points to GeoJSON format for sharing
+    exportToGeoJSON: function(points, types, options = {}) {
+        const features = [];
+        const pointTypes = PointManager.getPointTypes();
+        
+        types.forEach(type => {
+            if (points[type]) {
+                points[type].forEach(point => {
+                    const typeConfig = pointTypes[type];
+                    features.push({
+                        type: "Feature",
+                        geometry: {
+                            type: "Point",
+                            coordinates: [point.lng, point.lat]
+                        },
+                        properties: {
+                            id: point.id,
+                            pointType: type,
+                            number: point.number,
+                            typeName: i18n.t(type),
+                            typeDescription: i18n.t(type + 'Desc'),
+                            notes: point.notes || '',
+                            timestamp: new Date(point.timestamp).toISOString(),
+                            accuracy: point.accuracy,
+                            icon: typeConfig.icon,
+                            color: typeConfig.color,
+                            formattedCoords: point.formattedCoords
+                        }
+                    });
+                });
+            }
+        });
+        
+        const geoJson = {
+            type: "FeatureCollection",
+            features: features,
+            properties: {
+                title: "Forest Map Points",
+                description: `${features.length} points exported from Forest Map`,
+                exportDate: new Date().toISOString(),
+                exportedBy: "Forest Map v2.0",
+                language: i18n.getCurrentLanguage(),
+                totalPoints: features.length,
+                pointTypes: {
+                    exploitation: points.exploitation ? points.exploitation.length : 0,
+                    clearing: points.clearing ? points.clearing.length : 0,
+                    boundary: points.boundary ? points.boundary.length : 0
+                }
+            }
+        };
+        
+        if (options.returnString) {
+            return JSON.stringify(geoJson, null, 2);
+        }
+        
+        if (options.share) {
+            return this.shareGeoJSON(geoJson);
+        }
+        
+        // Default: download file
+        const geoJsonString = JSON.stringify(geoJson, null, 2);
+        this.downloadFile(geoJsonString, 'forest_points.geojson', 'application/geo+json');
+        return geoJson;
+    },
+
+    // Share GeoJSON using Web Share API or fallbacks
+    shareGeoJSON: async function(geoJsonData) {
+        const geoJsonString = JSON.stringify(geoJsonData, null, 2);
+        const totalPoints = geoJsonData.features.length;
+        
+        if (totalPoints === 0) {
+            this.showShareNotification(i18n.t('noPointsToShare'), 'error');
+            return false;
+        }
+        
+        const filename = `forest_points_${new Date().toISOString().split('T')[0]}.geojson`;
+        const title = `Forest Map - ${totalPoints} ${i18n.t('points')}`;
+        const text = `${totalPoints} forest points collected with GPS coordinates and metadata`;
+        
+        // Try Web Share API first (mobile browsers)
+        if (navigator.share && navigator.canShare) {
+            try {
+                const file = new File([geoJsonString], filename, {
+                    type: 'application/geo+json',
+                    lastModified: Date.now()
+                });
+                
+                const shareData = {
+                    title: title,
+                    text: text,
+                    files: [file]
+                };
+                
+                if (navigator.canShare(shareData)) {
+                    await navigator.share(shareData);
+                    this.showShareNotification(i18n.t('shareSuccess'), 'success');
+                    return true;
+                }
+            } catch (error) {
+                console.warn('Web Share API failed:', error);
+                // Fall through to alternative methods
+            }
+        }
+        
+        // Fallback 1: Try Web Share API without files (text only)
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: title,
+                    text: text + '\n\nGeoJSON data available for download',
+                    url: window.location.href
+                });
+                // Still download the file for them
+                this.downloadFile(geoJsonString, filename, 'application/geo+json');
+                this.showShareNotification(i18n.t('shareSuccess'), 'success');
+                return true;
+            } catch (error) {
+                console.warn('Web Share API (text) failed:', error);
+            }
+        }
+        
+        // Fallback 2: Copy to clipboard and download
+        return this.shareGeoJSONFallback(geoJsonString, filename, title);
+    },
+
+    // Fallback sharing methods
+    shareGeoJSONFallback: function(geoJsonString, filename, title) {
+        // Try clipboard API
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(geoJsonString).then(() => {
+                this.showShareDialog(filename, title, true);
+            }).catch(() => {
+                this.showShareDialog(filename, title, false);
+            });
+        } else {
+            this.showShareDialog(filename, title, false);
+        }
+        
+        // Always trigger download as backup
+        this.downloadFile(geoJsonString, filename, 'application/geo+json');
+        return true;
+    },
+
+    // Show share dialog with instructions
+    showShareDialog: function(filename, title, copiedToClipboard) {
+        const dialog = document.createElement('div');
+        dialog.className = 'share-dialog';
+        dialog.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            z-index: 3000;
+            max-width: 350px;
+            text-align: center;
+        `;
+        
+        const clipboardStatus = copiedToClipboard 
+            ? `<p style="color: #4CAF50; font-size: 14px; margin: 10px 0;">✓ ${i18n.t('copiedToClipboard')}</p>`
+            : '';
+        
+        dialog.innerHTML = `
+            <div style="margin-bottom: 20px;">
+                <svg width="48" height="48" style="color: #2196F3; margin-bottom: 15px;" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.50-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92S19.61 16.08 18 16.08z"/>
+                </svg>
+                <h3 style="margin: 0 0 10px 0; color: #333;">${i18n.t('shareGeoJSON')}</h3>
+            </div>
+            
+            ${clipboardStatus}
+            
+            <p style="color: #666; font-size: 14px; line-height: 1.5; margin: 15px 0;">
+                ${i18n.t('geoJsonDownloaded')}<br>
+                <strong>${filename}</strong>
+            </p>
+            
+            <div style="margin: 20px 0;">
+                <button onclick="document.body.removeChild(this.parentElement.parentElement.parentElement)" 
+                        style="background: #2196F3; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                    ${i18n.t('close')}
+                </button>
+            </div>
+            
+            <p style="color: #999; font-size: 12px; margin-top: 15px;">
+                ${i18n.t('shareInstructions')}
+            </p>
+        `;
+        
+        document.body.appendChild(dialog);
+        
+        // Auto-close after 10 seconds
+        setTimeout(() => {
+            if (dialog.parentNode) {
+                dialog.parentNode.removeChild(dialog);
+            }
+        }, 10000);
+    },
+
+    // Show share notification
+    showShareNotification: function(message, type = 'info') {
+        if (typeof LocationTracker !== 'undefined' && LocationTracker.updateStatus) {
+            LocationTracker.updateStatus(message, type);
+        } else {
+            // Fallback notification
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: ${type === 'error' ? '#f44336' : type === 'success' ? '#4CAF50' : '#2196F3'};
+                color: white;
+                padding: 12px 20px;
+                border-radius: 6px;
+                z-index: 3001;
+                font-size: 14px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            `;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 3000);
+        }
+    },
+
     // Show export options dialog
     showExportDialog: function() {
         const types = ['exploitation', 'clearing', 'boundary'];
