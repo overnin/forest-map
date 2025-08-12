@@ -211,14 +211,14 @@ const PointManager = (function() {
                 // First close any open popup for this point
                 this.closePopupForPoint(pointId);
                 
-                // Remove point from data
+                // Remove marker from map BEFORE removing from data (so point can still be found)
+                if (typeof MapManager !== 'undefined' && MapManager.removePointMarker) {
+                    MapManager.removePointMarker(pointId, type);
+                }
+                
+                // Now remove point from data
                 points[type].splice(index, 1);
                 saveToLocalStorage(type);
-                
-                // Remove marker from map using MapManager (proper cleanup)
-                if (typeof MapManager !== 'undefined' && MapManager.removePointMarker) {
-                    MapManager.removePointMarker(pointId);
-                }
                 
                 // Also clean up local marker reference as fallback
                 const markerIndex = markers[type].findIndex(m => m.pointId === pointId);

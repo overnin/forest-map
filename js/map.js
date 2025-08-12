@@ -1150,26 +1150,31 @@ const MapManager = (function() {
     }
     
     // Remove point marker by ID
-    function removePointMarker(pointId) {
-        // Find which type this point belongs to
-        let pointType = null;
-        let pointFound = false;
+    function removePointMarker(pointId, type = null) {
+        let pointType = type;
         
-        ['exploitation', 'clearing', 'boundary'].forEach(type => {
-            if (!pointFound) {
-                const points = PointManager.getPointsByType(type);
-                const point = points.find(p => p.id === pointId);
-                if (point) {
-                    pointType = type;
-                    pointFound = true;
+        // If type not provided, try to find which type this point belongs to
+        if (!pointType) {
+            let pointFound = false;
+            ['exploitation', 'clearing', 'boundary'].forEach(t => {
+                if (!pointFound) {
+                    const points = PointManager.getPointsByType(t);
+                    const point = points.find(p => p.id === pointId);
+                    if (point) {
+                        pointType = t;
+                        pointFound = true;
+                    }
                 }
-            }
-        });
+            });
+        }
         
-        // Update the layer for that type
+        // Update the layer for that type to remove the deleted point
         if (pointType) {
+            debugLog(`Removing point ${pointId} from ${pointType} layer`);
             updatePointsLayer(pointType);
             return true;
+        } else {
+            debugLog(`❌ Could not find point type for ${pointId}`);
         }
         
         return false;
