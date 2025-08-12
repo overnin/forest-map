@@ -206,9 +206,16 @@ const PointManager = (function() {
                 return false;
             }
             
+            console.log(`[POINTS] Searching for point ${pointId} in ${type} array`);
+            console.log(`[POINTS] Current ${type} points:`, points[type].map(p => ({id: p.id, number: p.number})));
+            
             const index = points[type].findIndex(p => p.id === pointId);
+            console.log(`[POINTS] Found index: ${index} for point ${pointId}`);
+            
             if (index !== -1) {
-                console.log(`[POINTS] Starting deletion of point ${pointId} (${type})`);
+                const pointToDelete = points[type][index];
+                console.log(`[POINTS] About to delete point:`, {id: pointToDelete.id, number: pointToDelete.number, type: pointToDelete.type});
+                console.log(`[POINTS] Starting deletion of point ${pointId} (${type}) at index ${index}`);
                 
                 // First close any open popup for this point
                 this.closePopupForPoint(pointId);
@@ -217,6 +224,7 @@ const PointManager = (function() {
                 points[type].splice(index, 1);
                 saveToLocalStorage(type);
                 console.log(`[POINTS] Removed point ${pointId} from data and localStorage`);
+                console.log(`[POINTS] Remaining ${type} points:`, points[type].map(p => ({id: p.id, number: p.number})));
                 
                 // THEN update map layer (which reads from the updated data)
                 if (typeof MapManager !== 'undefined' && MapManager.removePointMarker) {
@@ -245,6 +253,8 @@ const PointManager = (function() {
         
         // Delete point with immediate popup close for better UX
         deletePointWithPopupClose: function(pointId, type, buttonElement) {
+            console.log(`[POINTS] deletePointWithPopupClose called with pointId: ${pointId}, type: ${type}`);
+            
             // Immediately close the popup for instant feedback
             if (buttonElement) {
                 // Find the popup container and close it
