@@ -590,7 +590,13 @@ const ForestMapApp = (function() {
                 updateTypeIndicator(type);
                 updateTypeButtonStates(type);
                 hideTypeSelector();
-                markPointAtCurrentLocation();
+                
+                // Add small delay on mobile to ensure type selector is fully hidden before showing user dialog
+                if (isMobileDevice()) {
+                    setTimeout(() => markPointAtCurrentLocation(), 100);
+                } else {
+                    markPointAtCurrentLocation();
+                }
             });
         });
         
