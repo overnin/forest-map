@@ -532,14 +532,6 @@ const ForestMapApp = (function() {
         markBtn.addEventListener('click', function(e) {
             console.log('[APP] Mark button click event triggered');
             
-            // GLOBAL LOCK: Block if point creation is locked
-            if (globalPointCreationLock) {
-                console.log('[APP] 🔒 Mark button click BLOCKED - Global lock active');
-                e.preventDefault();
-                e.stopPropagation();
-                return;
-            }
-            
             // Prevent duplicate execution if touchend already handled this
             if (actionExecuted) {
                 console.log('[APP] Action already executed by touch handler, ignoring click');
@@ -548,11 +540,16 @@ const ForestMapApp = (function() {
             }
             
             if (e.shiftKey || !PointManager.hasSelectedType()) {
-                // Show type selector
+                // Show type selector (always allowed)
                 isTypeSelecting = true;
                 toggleTypeSelector();
+                console.log('[APP] ✅ Type selector opened (click, no type selected)');
             } else {
-                // Mark point with current type
+                // Point creation - check global lock
+                if (globalPointCreationLock) {
+                    console.log('[APP] 🔒 Point creation BLOCKED - Global lock active (click)');
+                    return;
+                }
                 markPointAtCurrentLocation();
             }
         });
@@ -563,29 +560,16 @@ const ForestMapApp = (function() {
         let touchStartTime = 0;
         
         markBtn.addEventListener('touchstart', function(e) {
-            // GLOBAL LOCK: Block if point creation is locked
-            if (globalPointCreationLock) {
-                console.log('[APP] 🔒 Mark button touchstart BLOCKED - Global lock active');
-                e.preventDefault();
-                e.stopPropagation();
-                return;
-            }
-            
             touchStartTime = Date.now();
             longPressTriggered = false;
             markBtn.classList.add('long-press-active');
             pressTimer = setTimeout(() => {
-                // Double-check global lock hasn't been activated during timeout
-                if (globalPointCreationLock) {
-                    console.log('[APP] 🔒 Long press action BLOCKED - Global lock activated during timeout');
-                    markBtn.classList.remove('long-press-active');
-                    return;
-                }
-                
+                // Long press for type selector is ALWAYS allowed (even during global lock)
                 longPressTriggered = true;
                 markBtn.classList.remove('long-press-active');
                 isTypeSelecting = true;
                 toggleTypeSelector();
+                console.log('[APP] ✅ Long press type selector opened (allowed during global lock)');
                 // Add haptic feedback if available
                 if (navigator.vibrate) {
                     navigator.vibrate(50);
@@ -598,36 +582,30 @@ const ForestMapApp = (function() {
             clearTimeout(pressTimer);
             markBtn.classList.remove('long-press-active');
             
-            // GLOBAL LOCK: Block if point creation is locked
-            if (globalPointCreationLock) {
-                console.log('[APP] 🔒 Mark button touchend BLOCKED - Global lock active');
-                e.preventDefault();
-                e.stopPropagation();
-                return;
-            }
-            
-            // If it was a long press, prevent the click
+            // If it was a long press, prevent the click (long press is always allowed)
             if (longPressTriggered) {
                 e.preventDefault();
                 e.stopPropagation();
                 return;
             }
             
-            // If it was a short press (under 400ms), trigger the normal action
+            // If it was a short press (under 400ms), check what action to take
             if (touchDuration < 400) {
                 console.log('[APP] Touch end event - executing action');
                 actionExecuted = true; // Prevent click handler from also executing
                 
-                // Prevent click handler from closing type selector immediately
+                // If no type selected, show type selector (always allowed)
                 if (!PointManager.hasSelectedType()) {
                     isTypeSelecting = true;
-                }
-                
-                // Execute action immediately (no setTimeout delay to reduce chance of conflicts)
-                if (!PointManager.hasSelectedType()) {
                     toggleTypeSelector();
+                    console.log('[APP] ✅ Type selector opened (short press, no type selected)');
                 } else {
-                    markPointAtCurrentLocation();
+                    // Point creation - check global lock
+                    if (globalPointCreationLock) {
+                        console.log('[APP] 🔒 Point creation BLOCKED - Global lock active (short press)');
+                    } else {
+                        markPointAtCurrentLocation();
+                    }
                 }
                 
                 // Reset actionExecuted flag after a short delay
@@ -885,9 +863,21 @@ const ForestMapApp = (function() {
     let pointCreationCallCount = 0;
     const GLOBAL_POINT_CREATION_COOLDOWN = isMobileDevice() ? 3000 : 1500; // Very long cooldown for mobile
     
-    // Block ALL touch events during point creation
+    // Block ALL touch events during point creation (except type selector actions)
     function blockAllTouchEvents(event) {
         if (globalPointCreationLock) {
+            // Allow type selector interactions during lock
+            const target = event.target;
+            const isTypeSelectorAction = target.closest('.type-selector-panel') || 
+                                       target.closest('.type-btn') ||
+                                       target.id === 'mark-btn' ||
+                                       target.closest('#mark-btn');
+            
+            if (isTypeSelectorAction) {
+                console.log(`[APP] ✅ GLOBAL LOCK: Allowing type selector action (${event.type}) during cooldown`);
+                return; // Allow the event to proceed
+            }
+            
             console.log(`[APP] 🚫 GLOBAL LOCK: Blocking ${event.type} event during point creation cooldown`);
             event.preventDefault();
             event.stopPropagation();
