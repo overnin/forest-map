@@ -217,8 +217,8 @@ const PointManager = (function() {
                 console.log(`[POINTS] About to delete point:`, {id: pointToDelete.id, number: pointToDelete.number, type: pointToDelete.type});
                 console.log(`[POINTS] Starting deletion of point ${pointId} (${type}) at index ${index}`);
                 
-                // First close any open popup for this point
-                this.closePopupForPoint(pointId);
+                // Note: Popup closure is handled by deletePointWithPopupClose
+                // No need to close popup again here
                 
                 // Remove point from data FIRST (this is critical!)
                 points[type].splice(index, 1);
@@ -281,19 +281,30 @@ const PointManager = (function() {
             }
             
             // Immediately close the popup for instant feedback
-            if (buttonElement) {
-                // Find the popup container and close it
-                const popup = buttonElement.closest('.point-popup');
-                if (popup && popup.parentElement) {
-                    // Find the mapbox popup wrapper and close it
-                    let popupWrapper = popup.parentElement;
-                    while (popupWrapper && !popupWrapper.classList.contains('mapboxgl-popup')) {
-                        popupWrapper = popupWrapper.parentElement;
-                    }
-                    if (popupWrapper) {
-                        popupWrapper.remove();
+            try {
+                // Method 1: Close via button element traversal
+                if (buttonElement) {
+                    const popup = buttonElement.closest('.point-popup');
+                    if (popup && popup.parentElement) {
+                        let popupWrapper = popup.parentElement;
+                        while (popupWrapper && !popupWrapper.classList.contains('mapboxgl-popup')) {
+                            popupWrapper = popupWrapper.parentElement;
+                        }
+                        if (popupWrapper) {
+                            console.log(`[POINTS] Closing popup via DOM traversal`);
+                            popupWrapper.remove();
+                        }
                     }
                 }
+                
+                // Method 2: Close all mapbox popups (fallback)
+                const allPopups = document.querySelectorAll('.mapboxgl-popup');
+                allPopups.forEach(popup => {
+                    console.log(`[POINTS] Closing popup via querySelectorAll fallback`);
+                    popup.remove();
+                });
+            } catch (error) {
+                console.error(`[POINTS] Error closing popup:`, error);
             }
             
             // Add small delay to prevent immediate map clicks
